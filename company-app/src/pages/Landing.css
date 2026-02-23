@@ -1,0 +1,136 @@
+.landing-container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #0d6efd;
+  padding: 20px;
+}
+
+.landing-content {
+  max-width: 500px;
+  width: 100%;
+}
+
+.landing-logo {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.logo-circle {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  font-weight: bold;
+  color: #0d6efd;
+  margin: 0 auto 15px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+}
+
+.landing-logo h1 {
+  color: white;
+  font-size: 36px;
+  margin-bottom: 0;
+}
+
+.landing-subtitle {
+  text-align: center;
+  color: white;
+  font-size: 20px;
+  margin-bottom: 30px;
+}
+
+.role-cards {
+  display: flex;
+  gap: 20px;
+  flex-direction: column;
+}
+
+.role-card {
+  background: white;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+.role-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+}
+
+.client-icon {
+  background-color: #dbeafe;
+  color: #3b82f6;
+}
+
+.role-card h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+  color: #1f2937;
+}
+
+.role-card p {
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.features-list {
+  list-style: none;
+  text-align: left;
+  margin: 20px 0;
+}
+
+.features-list li {
+  padding: 8px 0;
+  color: #4b5563;
+}
+
+.btn-client {
+  width: 100%;
+  padding: 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  background-color: #3b82f6;
+  color: white;
+}
+
+.btn-client:hover {
+  background-color: #0d6efd;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.landing-footer {
+  text-align: center;
+  margin-top: 30px;
+  color: white;
+}
+
+.landing-footer p {
+  margin: 10px 0;
+}
+
+.landing-footer span {
+  text-decoration: underline;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.landing-footer span:hover {
+  opacity: 0.8;
+}

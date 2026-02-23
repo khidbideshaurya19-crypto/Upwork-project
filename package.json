@@ -1,0 +1,29 @@
+{
+  "name": "matchflow-platform",
+  "version": "1.0.0",
+  "description": "Complete Upwork-like freelance marketplace platform",
+  "scripts": {
+    "install-all": "npm install --prefix backend && npm install --prefix client-app && npm install --prefix company-app",
+    "dev": "concurrently \"npm run dev --prefix backend\" \"npm start --prefix client-app\" \"npm start --prefix company-app\"",
+    "backend": "npm run dev --prefix backend",
+    "client": "npm start --prefix client-app",
+    "company": "npm start --prefix company-app"
+  },
+  "keywords": [
+    "upwork",
+    "freelance",
+    "marketplace",
+    "react",
+    "node"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/plugin-transform-class-properties": "^7.28.6",
+    "@babel/plugin-transform-nullish-coalescing-operator": "^7.28.6",
+    "@babel/plugin-transform-numeric-separator": "^7.28.6",
+    "@babel/plugin-transform-optional-chaining": "^7.28.6",
+    "@babel/plugin-transform-private-methods": "^7.28.6",
+    "concurrently": "^8.2.2"
+  }
+}
