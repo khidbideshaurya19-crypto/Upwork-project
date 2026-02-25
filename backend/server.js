@@ -10,7 +10,7 @@ const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001'],
+    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true
   }
@@ -18,7 +18,7 @@ const io = socketIo(server, {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
   credentials: true
 }));
 app.use(express.json());
@@ -60,6 +60,8 @@ app.use('/api/search', require('./routes/search'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/admin/auth', require('./routes/admin-auth'));
+app.use('/api/admin', require('./routes/admin'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

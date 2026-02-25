@@ -1,0 +1,22 @@
+/* ===== Admin Projects — Upwork-matching style ===== */
+/* Shared classes (.adm-container, .adm-content, .adm-page-title, .adm-toolbar,
+   .adm-section-card, .adm-table, .adm-pagination, .adm-overlay, .adm-modal,
+   .adm-form-group, .adm-action-btn) come from AdminDashboard.css + AdminUsers.css */
+
+.adm-cell-truncate {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.adm-select--full {
+  width: 100%;
+  border-radius: 8px;
+}
+
+@media (max-width: 768px) {
+  .adm-cell-truncate {
+    max-width: 120px;
+  }
+}

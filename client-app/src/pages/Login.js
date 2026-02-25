@@ -6,6 +6,7 @@ import './Auth.css';
 const Login = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const [selectedRole, setSelectedRole] = useState('client');
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -26,8 +27,12 @@ const Login = () => {
     setLoading(true);
 
     try {
-      await login(formData.email, formData.password);
-      navigate('/dashboard');
+      await login(formData.email, formData.password, selectedRole);
+      if (selectedRole === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Login failed. Please try again.');
     } finally {
@@ -35,13 +40,41 @@ const Login = () => {
     }
   };
 
+  const roleLabels = {
+    client: { title: 'Client Login', desc: 'Post projects and hire companies' },
+    company: { title: 'Company Login', desc: 'Browse projects and apply for work' },
+    admin: { title: 'Admin Login', desc: 'Manage the platform' }
+  };
+
   return (
     <div className="auth-container">
       <div className="auth-card">
         <div className="auth-header">
           <h1>MatchFlow</h1>
-          <h2>Client Login</h2>
-          <p>Welcome back! Please login to your account.</p>
+          <h2>{roleLabels[selectedRole].title}</h2>
+          <p>{roleLabels[selectedRole].desc}</p>
+        </div>
+
+        {/* Role Toggle Tabs */}
+        <div className="role-toggle">
+          <button
+            className={`role-tab ${selectedRole === 'client' ? 'active' : ''}`}
+            onClick={() => { setSelectedRole('client'); setError(''); }}
+          >
+            Client
+          </button>
+          <button
+            className={`role-tab ${selectedRole === 'company' ? 'active' : ''}`}
+            onClick={() => { setSelectedRole('company'); setError(''); }}
+          >
+            Company
+          </button>
+          <button
+            className={`role-tab ${selectedRole === 'admin' ? 'active' : ''}`}
+            onClick={() => { setSelectedRole('admin'); setError(''); }}
+          >
+            Admin
+          </button>
         </div>
 
         {error && <div className="error-message">{error}</div>}
@@ -75,12 +108,20 @@ const Login = () => {
           </div>
 
           <button type="submit" className="btn-primary" disabled={loading}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Logging in...' : `Login as ${selectedRole.charAt(0).toUpperCase() + selectedRole.slice(1)}`}
           </button>
         </form>
 
+        {selectedRole === 'admin' && (
+          <div className="credentials-hint">
+            <p><strong>Default Admin:</strong> admin@upwork.com / Admin@123456</p>
+          </div>
+        )}
+
         <div className="auth-footer">
-          <p>Don't have an account? <Link to="/signup">Sign up</Link></p>
+          {selectedRole !== 'admin' && (
+            <p>Don't have an account? <Link to="/signup">Sign up</Link></p>
+          )}
           <p><Link to="/">Back to Home</Link></p>
         </div>
       </div>

@@ -20,8 +20,13 @@ const Navbar = () => {
   const socketRef = React.useRef(null);
   const searchTimeoutRef = React.useRef(null);
 
+  const userRole = user?.role;
+  const isAdmin = userRole === 'admin';
+  const isCompany = userRole === 'company';
+  const isClient = userRole === 'client';
+
   useEffect(() => {
-    if (user) {
+    if (user && !isAdmin) {
       fetchUnreadCount();
       setupSocket();
     }
@@ -37,7 +42,7 @@ const Navbar = () => {
     socketRef.current = io(SOCKET_URL);
     
     socketRef.current.emit('join', {
-      userId: user.id,
+      userId: user.id || user._id,
       role: user.role
     });
 
@@ -69,8 +74,9 @@ const Navbar = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+      const countField = isCompany ? 'unreadCountCompany' : 'unreadCountClient';
       const total = response.data.conversations.reduce((sum, conv) => 
-        sum + conv.unreadCountClient, 0
+        sum + (conv[countField] || 0), 0
       );
       setUnreadCount(total);
     } catch (error) {
@@ -92,7 +98,6 @@ const Navbar = () => {
       return;
     }
 
-    // Debounce search
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
@@ -123,31 +128,96 @@ const Navbar = () => {
   };
 
   const handleSearchBlur = () => {
-    // Delay to allow result click
     setTimeout(() => {
       setShowSearchResults(false);
     }, 200);
   };
 
+  // Admin Navbar
+  if (isAdmin) {
+    return (
+      <nav className="upw-nav">
+        <div className="upw-nav-inner">
+          <div className="upw-nav-left">
+            <Link to="/admin/dashboard" className="upw-logo">
+              <span className="upw-logo-text">upwork</span>
+              <span className="adm-logo-tag">Admin</span>
+            </Link>
+          </div>
+
+          <div className="upw-nav-right">
+            <div className="upw-nav-links">
+              <button className="upw-nav-link" onClick={() => navigate('/admin/dashboard')}>
+                Dashboard
+              </button>
+              <button className="upw-nav-link" onClick={() => navigate('/admin/users')}>
+                Users
+              </button>
+              <button className="upw-nav-link" onClick={() => navigate('/admin/projects')}>
+                Projects
+              </button>
+              <button className="upw-nav-link" onClick={() => navigate('/admin/reports')}>
+                Reports
+              </button>
+            </div>
+
+            <button className="upw-icon-btn" title="Notifications">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#62646a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+              </svg>
+            </button>
+
+            <div className="upw-nav-user" onClick={() => setShowUserMenu(!showUserMenu)}>
+              <div className="upw-user-avatar">
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+              {showUserMenu && (
+                <div className="upw-user-dropdown">
+                  <div className="upw-user-dropdown-item upw-user-dropdown-item--danger" onClick={(e) => { e.stopPropagation(); setShowUserMenu(false); handleLogout(); }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    Log Out
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </nav>
+    );
+  }
+
+  // Client / Company Navbar
   return (
     <nav className="upw-nav">
       <div className="upw-nav-inner">
-        {/* Left: Logo */}
         <div className="upw-nav-left">
           <Link to="/dashboard" className="upw-logo">
             <span className="upw-logo-text">upwork</span>
           </Link>
         </div>
 
-        {/* Right: Nav links + Search + Icons + User */}
         <div className="upw-nav-right">
           <div className="upw-nav-links">
-            <button className="upw-nav-link" onClick={() => navigate('/dashboard')}>
-              My Projects <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <button className="upw-nav-link" onClick={() => navigate('/search-company')}>
-              Search Company <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
+            {isClient && (
+              <>
+                <button className="upw-nav-link" onClick={() => navigate('/dashboard')}>
+                  My Projects <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <button className="upw-nav-link" onClick={() => navigate('/search-company')}>
+                  Search Company <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </>
+            )}
+            {isCompany && (
+              <>
+                <button className="upw-nav-link" onClick={() => navigate('/dashboard')}>
+                  Find Work <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <button className="upw-nav-link" onClick={() => navigate('/dashboard?tab=applications')}>
+                  My Applications <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </>
+            )}
             <button className="upw-nav-link" onClick={() => navigate('/payments')}>
               Payments <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
@@ -182,9 +252,9 @@ const Navbar = () => {
                 ) : searchResults.length > 0 ? (
                   searchResults.map((result) => (
                     <div key={result._id} className="upw-search-item" onClick={() => handleResultClick(result._id)}>
-                      <div className="upw-search-avatar">{result.companyName?.charAt(0).toUpperCase()}</div>
+                      <div className="upw-search-avatar">{(result.companyName || result.name)?.charAt(0).toUpperCase()}</div>
                       <div className="upw-search-info">
-                        <span className="upw-search-name">{result.companyName}</span>
+                        <span className="upw-search-name">{result.companyName || result.name}</span>
                         <span className="upw-search-meta">
                           {result.location}{result.industry && ` · ${result.industry}`}
                         </span>

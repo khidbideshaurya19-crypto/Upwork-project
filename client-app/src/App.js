@@ -1,11 +1,12 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import CompanyDashboard from './pages/CompanyDashboard';
 import PostProject from './pages/PostProject';
 import ProjectDetails from './pages/ProjectDetails';
 import Messages from './pages/Messages';
@@ -13,7 +14,36 @@ import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import SearchCompany from './pages/SearchCompany';
 import Payments from './pages/Payments';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminProjects from './pages/AdminProjects';
+import AdminReports from './pages/AdminReports';
+import Navbar from './components/Navbar';
 import './App.css';
+
+// Smart Dashboard that renders based on role
+const SmartDashboard = () => {
+  const { user } = useAuth();
+  if (user?.role === 'company') return <CompanyDashboard />;
+  return <Dashboard />;
+};
+
+// Admin route wrapper - only allows admin users
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== 'admin') return <Navigate to="/dashboard" />;
+  return children;
+};
 
 function App() {
   return (
@@ -27,7 +57,7 @@ function App() {
             path="/dashboard" 
             element={
               <PrivateRoute>
-                <Dashboard />
+                <SmartDashboard />
               </PrivateRoute>
             } 
           />
@@ -95,6 +125,45 @@ function App() {
               </PrivateRoute>
             } 
           />
+
+          {/* Admin Routes */}
+          <Route 
+            path="/admin/dashboard" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminDashboard />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/users" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminUsers />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/projects" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminProjects />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/reports" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminReports />
+              </AdminRoute>
+            } 
+          />
+
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
