@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Complete Upwork-like freelance marketplace platform",
   "scripts": {
-    "install-all": "npm install --prefix backend && npm install --prefix client-app && npm install --prefix company-app",
-    "dev": "concurrently \"npm run dev --prefix backend\" \"npm start --prefix client-app\" \"npm start --prefix company-app\"",
-    "backend": "npm run dev --prefix backend",
-    "client": "npm start --prefix client-app",
-    "company": "npm start --prefix company-app"
+    "install-all": "npm install && cd backend && npm install && cd ../app && npm install && cd ..",
+    "backend": "cd backend && npm start",
+    "frontend": "cd app && npm start",
+    "dev": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "start": "npm run dev"
   },
   "keywords": [
     "upwork",

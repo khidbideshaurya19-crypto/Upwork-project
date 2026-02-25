@@ -2,6 +2,28 @@
 
 A full-stack freelance marketplace platform similar to Upwork, featuring real-time communication between clients and companies.
 
+## ✨ New: Unified Application
+
+**The application now runs through a single entry point with a complete user flow!**
+
+### User Journey:
+1. **Landing Page** - Beautiful marketing website with features and pricing
+2. **Click "Get Started"** - Shows role selection (Client or Company)
+3. **Choose Your Role** - Each option takes you to signup with pre-selected role
+4. **Sign Up & Start** - Complete registration and access your dashboard
+
+### Quick Start (Unified App)
+```bash
+# Start everything with one command
+start-unified.bat
+```
+
+Then visit `http://localhost:3000` to see the complete flow!
+
+📖 **For detailed information, see [UNIFIED_APP_GUIDE.md](UNIFIED_APP_GUIDE.md)**
+
+---
+
 ## 🚀 Tech Stack
 
 ### Backend

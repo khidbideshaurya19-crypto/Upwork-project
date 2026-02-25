@@ -102,6 +102,43 @@ const Dashboard = () => {
     }
   };
 
+  const handleStartChatFromProject = async (project, e) => {
+    e.stopPropagation();
+    
+    console.log('Starting chat from project:', project._id);
+    console.log('Current user:', user);
+    
+    try {
+      // First check if conversation exists
+      const convResponse = await api.get('/messages/conversations');
+      console.log('Existing conversations:', convResponse.data.conversations);
+      
+      const existingConv = convResponse.data.conversations.find(
+        conv => conv.project._id === project._id
+      );
+      
+      if (existingConv) {
+        console.log('Found existing conversation:', existingConv._id);
+        navigate(`/messages/${existingConv._id}`);
+        return;
+      }
+      
+      // Create new conversation
+      console.log('Creating new conversation for project:', project._id);
+      const response = await api.post('/messages/start', {
+        projectId: project._id,
+        companyId: user.id
+      });
+      
+      console.log('Conversation created:', response.data.conversation._id);
+      navigate(`/messages/${response.data.conversation._id}`);
+    } catch (error) {
+      console.error('Error starting chat:', error);
+      console.error('Error response:', error.response?.data);
+      alert(error.response?.data?.message || 'Failed to start chat. Please try again.');
+    }
+  };
+
   const getPostedLabel = (date) => {
     const now = new Date();
     const posted = new Date(date);
@@ -137,49 +174,64 @@ const Dashboard = () => {
   });
 
   const renderJobCard = (project) => (
-    <div key={project._id} className="upw-job-card" onClick={() => navigate(`/project/${project._id}`)}>
-      <div className="upw-job-top-row">
-        <span className="upw-posted">{getPostedLabel(project.createdAt)}</span>
-        <div className="upw-job-actions">
-          <button className="upw-icon-btn" title="Not interested" onClick={(e) => e.stopPropagation()}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
-          </button>
-          <button
-            className={`upw-icon-btn ${savedJobs.includes(project._id) ? 'saved' : ''}`}
-            title={savedJobs.includes(project._id) ? 'Unsave' : 'Save'}
-            onClick={(e) => toggleSaved(project._id, e)}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill={savedJobs.includes(project._id) ? '#ef4444' : 'none'} stroke={savedJobs.includes(project._id) ? '#ef4444' : '#6b7280'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-          </button>
+    <div key={project._id} className="upw-job-card">
+      <div style={{ cursor: 'pointer' }} onClick={() => navigate(`/project/${project._id}`)}>
+        <div className="upw-job-top-row">
+          <span className="upw-posted">{getPostedLabel(project.createdAt)}</span>
+          <div className="upw-job-actions">
+            <button className="upw-icon-btn" title="Not interested" onClick={(e) => e.stopPropagation()}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+            </button>
+            <button
+              className={`upw-icon-btn ${savedJobs.includes(project._id) ? 'saved' : ''}`}
+              title={savedJobs.includes(project._id) ? 'Unsave' : 'Save'}
+              onClick={(e) => toggleSaved(project._id, e)}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill={savedJobs.includes(project._id) ? '#ef4444' : 'none'} stroke={savedJobs.includes(project._id) ? '#ef4444' : '#6b7280'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <h3 className="upw-job-title">{project.title}</h3>
+        <h3 className="upw-job-title">{project.title}</h3>
 
-      <p className="upw-job-meta">
-        {project.budgetType === 'fixed' ? 'Fixed-price' : 'Hourly'} · {project.category} · Est. Budget: ${project.budget}
-      </p>
+        <p className="upw-job-meta">
+          {project.budgetType === 'fixed' ? 'Fixed-price' : 'Hourly'} · {project.category} · Est. Budget: ${project.budget}
+        </p>
 
-      <p className="upw-job-desc">{project.description.length > 280 ? project.description.substring(0, 280) + '...' : project.description}</p>
+        <p className="upw-job-desc">{project.description.length > 280 ? project.description.substring(0, 280) + '...' : project.description}</p>
 
-      {project.skills && project.skills.length > 0 && (
-        <div className="upw-skill-tags">
-          {project.skills.map((skill, index) => (
-            <span key={index} className="upw-skill-pill">{skill}</span>
-          ))}
+        {project.skills && project.skills.length > 0 && (
+          <div className="upw-skill-tags">
+            {project.skills.map((skill, index) => (
+              <span key={index} className="upw-skill-pill">{skill}</span>
+            ))}
+          </div>
+        )}
+
+        <div className="upw-job-bottom">
+          <span className="upw-verified">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="#0d6efd" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" fill="none"/></svg>
+            Payment verified
+          </span>
+          <span className="upw-stars">★★★★★</span>
+          <span className="upw-meta-light">📍 {project.location || 'Remote'}</span>
         </div>
-      )}
 
-      <div className="upw-job-bottom">
-        <span className="upw-verified">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="#0d6efd" stroke="white" strokeWidth="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4" stroke="white" strokeWidth="2" fill="none"/></svg>
-          Payment verified
-        </span>
-        <span className="upw-stars">★★★★★</span>
-        <span className="upw-meta-light">📍 {project.location || 'Remote'}</span>
+        <p className="upw-proposals">Proposals: {project.applicantsCount || 0}</p>
       </div>
-
-      <p className="upw-proposals">Proposals: {project.applicantsCount || 0}</p>
+      
+      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
+        <button 
+          className="btn-primary" 
+          style={{ width: '100%', padding: '10px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+          onClick={(e) => handleStartChatFromProject(project, e)}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          Chat with Client
+        </button>
+      </div>
     </div>
   );
 

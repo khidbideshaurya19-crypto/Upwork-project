@@ -23,8 +23,15 @@ const messageSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['sent', 'delivered', 'read'],
-    default: 'sent'
+    enum: ['pending', 'sent', 'delivered', 'read'],
+    default: 'pending'
+  },
+  isEdited: {
+    type: Boolean,
+    default: false
+  },
+  editedAt: {
+    type: Date
   },
   attachments: [{
     filename: String,

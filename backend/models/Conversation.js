@@ -4,12 +4,12 @@ const conversationSchema = new mongoose.Schema({
   project: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
-    required: true
+    required: false  // Not required - conversation is between client and company, not tied to single project
   },
   application: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Application',
-    required: true
+    required: false
   },
   client: {
     type: mongoose.Schema.Types.ObjectId,
@@ -41,7 +41,7 @@ const conversationSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index to ensure one conversation per project-company pair
-conversationSchema.index({ project: 1, company: 1 }, { unique: true });
+// Compound index to ensure one conversation per client-company pair
+conversationSchema.index({ client: 1, company: 1 }, { unique: true });
 
 module.exports = mongoose.model('Conversation', conversationSchema);
