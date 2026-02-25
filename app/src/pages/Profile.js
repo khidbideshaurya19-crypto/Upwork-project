@@ -1,0 +1,514 @@
+import React, { useState, useEffect } from 'react';
+import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
+import api from '../utils/api';
+import './Profile.css';
+
+const Profile = () => {
+  const { refreshUser } = useAuth();
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
+  const [profileImage, setProfileImage] = useState('');
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    location: '',
+    phone: '',
+    website: '',
+    bio: '',
+    industry: '',
+    skills: [],
+    linkedin: '',
+    twitter: '',
+    github: ''
+  });
+  const [newSkill, setNewSkill] = useState('');
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const response = await api.get('/profile');
+      const userData = response.data.user;
+      setProfileImage(userData.profileImage || '');
+      setImagePreview(userData.profileImage || '');
+      setFormData({
+        name: userData.name || '',
+        email: userData.email || '',
+        location: userData.location || '',
+        phone: userData.phone || '',
+        website: userData.website || '',
+        bio: userData.bio || '',
+        industry: userData.industry || '',
+        skills: userData.skills || [],
+        linkedin: userData.socialLinks?.linkedin || '',
+        twitter: userData.socialLinks?.twitter || '',
+        github: userData.socialLinks?.github || ''
+      });
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+    }
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        setMessage('Image size should be less than 5MB');
+        return;
+      }
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAddSkill = () => {
+    if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
+      setFormData({
+        ...formData,
+        skills: [...formData.skills, newSkill.trim()]
+      });
+      setNewSkill('');
+    }
+  };
+
+  const handleRemoveSkill = (skillToRemove) => {
+    setFormData({
+      ...formData,
+      skills: formData.skills.filter(skill => skill !== skillToRemove)
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const submitData = new FormData();
+      Object.keys(formData).forEach(key => {
+        if (key === 'skills') {
+          submitData.append(key, JSON.stringify(formData[key]));
+        } else {
+          submitData.append(key, formData[key]);
+        }
+      });
+      
+      if (selectedFile) {
+        submitData.append('profileImage', selectedFile);
+      }
+
+      await api.put('/profile', submitData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+
+      setMessage('Profile updated successfully!');
+      setIsEditing(false);
+      setSelectedFile(null);
+      await refreshUser(); // Refresh user data in context
+      fetchProfile();
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setMessage('New passwords do not match');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setMessage('New password must be at least 6 characters');
+      return;
+    }
+
+    try {
+      await api.put('/profile/password', {
+        currentPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword
+      });
+
+      setMessage('Password updated successfully!');
+      setShowPasswordModal(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Failed to update password');
+    }
+  };
+
+  return (
+    <>
+      <Navbar />
+      <div className="profile-container">
+        <div className="profile-header">
+          <h1>My Profile</h1>
+          {!isEditing && (
+            <button className="btn-edit" onClick={() => setIsEditing(true)}>
+              Edit Profile
+            </button>
+          )}
+        </div>
+
+        {message && (
+          <div className={`message ${message.includes('success') ? 'success' : 'error'}`}>
+            {message}
+          </div>
+        )}
+
+        <div className="profile-content">
+          {!isEditing ? (
+            <div className="profile-view">
+              <div className="profile-section profile-picture-section">
+                <div className="profile-avatar-display">
+                  {imagePreview ? (
+                    <img src={imagePreview.startsWith('http') ? imagePreview : `http://localhost:5000${imagePreview}`} alt="Profile" className="profile-avatar" />
+                  ) : (
+                    <div className="profile-avatar-placeholder">
+                      {formData.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Personal Information</h2>
+                <div className="profile-grid">
+                  <div className="profile-item">
+                    <label>Name</label>
+                    <p>{formData.name || 'Not provided'}</p>
+                  </div>
+                  <div className="profile-item">
+                    <label>Email</label>
+                    <p>{formData.email}</p>
+                  </div>
+                  <div className="profile-item">
+                    <label>Location</label>
+                    <p>{formData.location || 'Not provided'}</p>
+                  </div>
+                  <div className="profile-item">
+                    <label>Phone</label>
+                    <p>{formData.phone || 'Not provided'}</p>
+                  </div>
+                  <div className="profile-item">
+                    <label>Website</label>
+                    <p>{formData.website || 'Not provided'}</p>
+                  </div>
+                  <div className="profile-item">
+                    <label>Industry</label>
+                    <p>{formData.industry || 'Not provided'}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Bio</h2>
+                <p className="bio-text">{formData.bio || 'No bio added yet'}</p>
+              </div>
+
+              <div className="profile-section">
+                <h2>Skills</h2>
+                <div className="skills-display">
+                  {formData.skills.length > 0 ? (
+                    formData.skills.map((skill, index) => (
+                      <span key={index} className="skill-tag">{skill}</span>
+                    ))
+                  ) : (
+                    <p>No skills added yet</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Social Links</h2>
+                <div className="social-links">
+                  {formData.linkedin && (
+                    <a href={formData.linkedin} target="_blank" rel="noopener noreferrer">
+                      LinkedIn
+                    </a>
+                  )}
+                  {formData.twitter && (
+                    <a href={formData.twitter} target="_blank" rel="noopener noreferrer">
+                      Twitter
+                    </a>
+                  )}
+                  {formData.github && (
+                    <a href={formData.github} target="_blank" rel="noopener noreferrer">
+                      GitHub
+                    </a>
+                  )}
+                  {!formData.linkedin && !formData.twitter && !formData.github && (
+                    <p>No social links added yet</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="profile-actions">
+                <button className="btn-secondary" onClick={() => setShowPasswordModal(true)}>
+                  Change Password
+                </button>
+              </div>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="profile-form">
+              <div className="profile-section profile-picture-section">
+                <h2>Profile Picture</h2>
+                <div className="profile-avatar-upload">
+                  <div className="profile-avatar-preview">
+                    {imagePreview ? (
+                      <img src={imagePreview.startsWith('http') ? imagePreview : imagePreview.startsWith('blob:') ? imagePreview : `http://localhost:5000${imagePreview}`} alt="Profile Preview" className="profile-avatar" />
+                    ) : (
+                      <div className="profile-avatar-placeholder">
+                        {formData.name.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div className="upload-controls">
+                    <input
+                      type="file"
+                      id="profileImage"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      style={{ display: 'none' }}
+                    />
+                    <label htmlFor="profileImage" className="btn-upload">
+                      Choose Photo
+                    </label>
+                    <p className="upload-hint">JPG, PNG or GIF (max 5MB)</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Personal Information</h2>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>Name *</label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Email (Read-only)</label>
+                    <input
+                      type="email"
+                      value={formData.email}
+                      disabled
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Location</label>
+                    <input
+                      type="text"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleChange}
+                      placeholder="e.g., New York, USA"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Phone</label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleChange}
+                      placeholder="+1 234 567 8900"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Website</label>
+                    <input
+                      type="url"
+                      name="website"
+                      value={formData.website}
+                      onChange={handleChange}
+                      placeholder="https://example.com"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Industry</label>
+                    <input
+                      type="text"
+                      name="industry"
+                      value={formData.industry}
+                      onChange={handleChange}
+                      placeholder="e.g., Technology, Finance"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Bio</h2>
+                <textarea
+                  name="bio"
+                  value={formData.bio}
+                  onChange={handleChange}
+                  rows="5"
+                  placeholder="Tell us about yourself..."
+                  maxLength="1000"
+                />
+                <small>{formData.bio.length}/1000 characters</small>
+              </div>
+
+              <div className="profile-section">
+                <h2>Skills</h2>
+                <div className="skills-input">
+                  <input
+                    type="text"
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
+                    placeholder="Add a skill"
+                  />
+                  <button type="button" onClick={handleAddSkill} className="btn-add-skill">
+                    Add
+                  </button>
+                </div>
+                <div className="skills-list">
+                  {formData.skills.map((skill, index) => (
+                    <span key={index} className="skill-tag editable">
+                      {skill}
+                      <button type="button" onClick={() => handleRemoveSkill(skill)}>×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Social Links</h2>
+                <div className="form-grid">
+                  <div className="form-group">
+                    <label>LinkedIn</label>
+                    <input
+                      type="url"
+                      name="linkedin"
+                      value={formData.linkedin}
+                      onChange={handleChange}
+                      placeholder="https://linkedin.com/in/username"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Twitter</label>
+                    <input
+                      type="url"
+                      name="twitter"
+                      value={formData.twitter}
+                      onChange={handleChange}
+                      placeholder="https://twitter.com/username"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>GitHub</label>
+                    <input
+                      type="url"
+                      name="github"
+                      value={formData.github}
+                      onChange={handleChange}
+                      placeholder="https://github.com/username"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-actions">
+                <button type="button" className="btn-cancel" onClick={() => {setIsEditing(false); fetchProfile();}}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-save" disabled={loading}>
+                  {loading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {showPasswordModal && (
+          <div className="modal-overlay" onClick={() => setShowPasswordModal(false)}>
+            <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+              <h2>Change Password</h2>
+              <form onSubmit={handlePasswordChange}>
+                <div className="form-group">
+                  <label>Current Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({...passwordData, currentPassword: e.target.value})}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label>New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.newPassword}
+                    onChange={(e) => setPasswordData({...passwordData, newPassword: e.target.value})}
+                    required
+                    minLength="6"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={passwordData.confirmPassword}
+                    onChange={(e) => setPasswordData({...passwordData, confirmPassword: e.target.value})}
+                    required
+                    minLength="6"
+                  />
+                </div>
+                <div className="form-actions">
+                  <button type="button" className="btn-cancel" onClick={() => setShowPasswordModal(false)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-save">
+                    Update Password
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+};
+
+export default Profile;
