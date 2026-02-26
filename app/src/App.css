@@ -1,3 +1,24 @@
+:root {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --border-color: #e2e8f0;
+  --card-bg: #ffffff;
+}
+
+body {
+  color: var(--text-primary) !important;
+  background-color: var(--bg-primary) !important;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html {
+  background-color: var(--bg-primary) !important;
+  transition: background-color 0.3s ease;
+}
+
 .App {
   text-align: center;
 }

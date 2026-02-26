@@ -20,12 +20,10 @@ const Profile = () => {
     website: '',
     bio: '',
     industry: '',
-    skills: [],
     linkedin: '',
     twitter: '',
     github: ''
   });
-  const [newSkill, setNewSkill] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -51,7 +49,6 @@ const Profile = () => {
         website: userData.website || '',
         bio: userData.bio || '',
         industry: userData.industry || '',
-        skills: userData.skills || [],
         linkedin: userData.socialLinks?.linkedin || '',
         twitter: userData.socialLinks?.twitter || '',
         github: userData.socialLinks?.github || ''
@@ -84,23 +81,6 @@ const Profile = () => {
     }
   };
 
-  const handleAddSkill = () => {
-    if (newSkill.trim() && !formData.skills.includes(newSkill.trim())) {
-      setFormData({
-        ...formData,
-        skills: [...formData.skills, newSkill.trim()]
-      });
-      setNewSkill('');
-    }
-  };
-
-  const handleRemoveSkill = (skillToRemove) => {
-    setFormData({
-      ...formData,
-      skills: formData.skills.filter(skill => skill !== skillToRemove)
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -109,11 +89,7 @@ const Profile = () => {
     try {
       const submitData = new FormData();
       Object.keys(formData).forEach(key => {
-        if (key === 'skills') {
-          submitData.append(key, JSON.stringify(formData[key]));
-        } else {
-          submitData.append(key, formData[key]);
-        }
+        submitData.append(key, formData[key]);
       });
       
       if (selectedFile) {
@@ -136,6 +112,32 @@ const Profile = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateProfileCompletion = () => {
+    const fields = [
+      formData.name,
+      formData.email,
+      formData.location,
+      formData.phone,
+      profileImage,
+      formData.bio,
+      formData.linkedin || formData.twitter || formData.github
+    ];
+    
+    const completedFields = fields.filter(field => field && field.trim()).length;
+    return Math.round((completedFields / fields.length) * 100);
+  };
+
+  const getProfileCompletionTips = () => {
+    const tips = [];
+    if (!formData.name) tips.push('Add your name');
+    if (!formData.location) tips.push('Add your location');
+    if (!formData.phone) tips.push('Add your phone number');
+    if (!profileImage) tips.push('Upload a profile picture');
+    if (!formData.bio) tips.push('Write a bio');
+    if (!formData.linkedin && !formData.twitter && !formData.github) tips.push('Add social links');
+    return tips;
   };
 
   const handlePasswordChange = async (e) => {
@@ -175,11 +177,6 @@ const Profile = () => {
       <div className="profile-container">
         <div className="profile-header">
           <h1>My Profile</h1>
-          {!isEditing && (
-            <button className="btn-edit" onClick={() => setIsEditing(true)}>
-              Edit Profile
-            </button>
-          )}
         </div>
 
         {message && (
@@ -190,95 +187,160 @@ const Profile = () => {
 
         <div className="profile-content">
           {!isEditing ? (
-            <div className="profile-view">
-              <div className="profile-section profile-picture-section">
-                <div className="profile-avatar-display">
-                  {imagePreview ? (
-                    <img src={imagePreview.startsWith('http') ? imagePreview : `http://localhost:5000${imagePreview}`} alt="Profile" className="profile-avatar" />
-                  ) : (
-                    <div className="profile-avatar-placeholder">
-                      {formData.name.charAt(0).toUpperCase()}
+            <div className="profile-page-layout">
+
+              {/* Profile Header Card - full width, always visible */}
+              <div className="profile-header-card">
+                <div className="profile-header-left">
+                  <div className="profile-header-avatar">
+                    {imagePreview ? (
+                      <img src={imagePreview.startsWith('http') ? imagePreview : `http://localhost:5000${imagePreview}`} alt="Profile" className="profile-avatar" />
+                    ) : (
+                      <div className="profile-avatar-placeholder">
+                        {formData.name ? formData.name.charAt(0).toUpperCase() : '?'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="profile-header-info">
+                    <h2 className="profile-header-name">{formData.name || 'Your Name'}</h2>
+                    <p className="profile-header-title">{formData.industry || 'Freelancer'}</p>
+                    {formData.location && (
+                      <p className="profile-header-location">📍 {formData.location}</p>
+                    )}
+                    {formData.bio && (
+                      <p className="profile-header-bio">
+                        {formData.bio.length > 150 ? formData.bio.substring(0, 150) + '...' : formData.bio}
+                      </p>
+                    )}
+                    <div className="profile-header-actions">
+                      <button className="btn-edit" onClick={() => setIsEditing(true)}>Edit Profile</button>
+                      <button className="btn-secondary" onClick={() => setShowPasswordModal(true)}>Change Password</button>
                     </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="profile-section">
-                <h2>Personal Information</h2>
-                <div className="profile-grid">
-                  <div className="profile-item">
-                    <label>Name</label>
-                    <p>{formData.name || 'Not provided'}</p>
-                  </div>
-                  <div className="profile-item">
-                    <label>Email</label>
-                    <p>{formData.email}</p>
-                  </div>
-                  <div className="profile-item">
-                    <label>Location</label>
-                    <p>{formData.location || 'Not provided'}</p>
-                  </div>
-                  <div className="profile-item">
-                    <label>Phone</label>
-                    <p>{formData.phone || 'Not provided'}</p>
-                  </div>
-                  <div className="profile-item">
-                    <label>Website</label>
-                    <p>{formData.website || 'Not provided'}</p>
-                  </div>
-                  <div className="profile-item">
-                    <label>Industry</label>
-                    <p>{formData.industry || 'Not provided'}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="profile-section">
-                <h2>Bio</h2>
-                <p className="bio-text">{formData.bio || 'No bio added yet'}</p>
-              </div>
+              {/* Two-column layout: Details + Sidebar */}
+              <div className="profile-view-wrapper">
+                {/* LEFT: Profile Details */}
+                <div className="profile-view-main">
+                  <div className="profile-section">
+                    <h2>Personal Information</h2>
+                    <div className="profile-grid">
+                      <div className="profile-item">
+                        <label>Name</label>
+                        <p>{formData.name || 'Not provided'}</p>
+                      </div>
+                      <div className="profile-item">
+                        <label>Email</label>
+                        <p>{formData.email}</p>
+                      </div>
+                      <div className="profile-item">
+                        <label>Location</label>
+                        <p>{formData.location || 'Not provided'}</p>
+                      </div>
+                      <div className="profile-item">
+                        <label>Phone</label>
+                        <p>{formData.phone || 'Not provided'}</p>
+                      </div>
+                      <div className="profile-item">
+                        <label>Website</label>
+                        <p>{formData.website || 'Not provided'}</p>
+                      </div>
+                      <div className="profile-item">
+                        <label>Industry</label>
+                        <p>{formData.industry || 'Not provided'}</p>
+                      </div>
+                    </div>
+                  </div>
 
-              <div className="profile-section">
-                <h2>Skills</h2>
-                <div className="skills-display">
-                  {formData.skills.length > 0 ? (
-                    formData.skills.map((skill, index) => (
-                      <span key={index} className="skill-tag">{skill}</span>
-                    ))
-                  ) : (
-                    <p>No skills added yet</p>
-                  )}
+                  <div className="profile-section">
+                    <h2>Bio</h2>
+                    <p className="bio-text">{formData.bio || 'No bio added yet. Click Edit Profile to add one.'}</p>
+                  </div>
+
+                  <div className="profile-section">
+                    <h2>Social Links</h2>
+                    <div className="social-links">
+                      {formData.linkedin && (
+                        <a href={formData.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a>
+                      )}
+                      {formData.twitter && (
+                        <a href={formData.twitter} target="_blank" rel="noopener noreferrer">Twitter</a>
+                      )}
+                      {formData.github && (
+                        <a href={formData.github} target="_blank" rel="noopener noreferrer">GitHub</a>
+                      )}
+                      {!formData.linkedin && !formData.twitter && !formData.github && (
+                        <p>No social links added yet</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="profile-section">
-                <h2>Social Links</h2>
-                <div className="social-links">
-                  {formData.linkedin && (
-                    <a href={formData.linkedin} target="_blank" rel="noopener noreferrer">
-                      LinkedIn
-                    </a>
-                  )}
-                  {formData.twitter && (
-                    <a href={formData.twitter} target="_blank" rel="noopener noreferrer">
-                      Twitter
-                    </a>
-                  )}
-                  {formData.github && (
-                    <a href={formData.github} target="_blank" rel="noopener noreferrer">
-                      GitHub
-                    </a>
-                  )}
-                  {!formData.linkedin && !formData.twitter && !formData.github && (
-                    <p>No social links added yet</p>
-                  )}
+                {/* RIGHT: Profile Completion Sidebar */}
+                <div className="profile-sidebar">
+                  <div className="profile-completion-card">
+                    <h3 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: '700', color: '#222' }}>
+                      Profile completeness
+                    </h3>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '0.82rem', color: '#666', lineHeight: '1.5' }}>
+                      Increase your profile visibility in search results and attract more proposals.
+                    </p>
+
+                    {calculateProfileCompletion() < 100 && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 16px',
+                          backgroundColor: 'white',
+                          color: '#007bff',
+                          border: '2px solid #007bff',
+                          borderRadius: '20px',
+                          cursor: 'pointer',
+                          fontSize: '0.9rem',
+                          fontWeight: '600',
+                          marginBottom: '18px'
+                        }}
+                      >
+                        Complete your profile
+                      </button>
+                    )}
+
+                    <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.8rem', color: '#666' }}>Progress</span>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: calculateProfileCompletion() === 100 ? '#28a745' : '#007bff' }}>
+                        {calculateProfileCompletion()}%
+                      </span>
+                    </div>
+                    <div style={{ width: '100%', height: '6px', backgroundColor: '#e9ecef', borderRadius: '10px', overflow: 'hidden', marginBottom: '16px' }}>
+                      <div style={{
+                        height: '100%',
+                        width: `${calculateProfileCompletion()}%`,
+                        backgroundColor: calculateProfileCompletion() === 100 ? '#28a745' : '#007bff',
+                        transition: 'width 0.3s ease'
+                      }}></div>
+                    </div>
+
+                    {getProfileCompletionTips().length > 0 && (
+                      <div style={{ borderTop: '1px solid #eee', paddingTop: '14px' }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '0.8rem', fontWeight: '600', color: '#333' }}>Tips to get more work:</p>
+                        <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '0.8rem' }}>
+                          {getProfileCompletionTips().map((tip, index) => (
+                            <li key={index} style={{ color: '#555', marginBottom: '5px' }}>{tip}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {calculateProfileCompletion() === 100 && (
+                      <div style={{ textAlign: 'center', color: '#28a745', fontWeight: '600', fontSize: '0.9rem' }}>
+                        ✓ Profile complete!
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="profile-actions">
-                <button className="btn-secondary" onClick={() => setShowPasswordModal(true)}>
-                  Change Password
-                </button>
               </div>
             </div>
           ) : (
@@ -383,33 +445,8 @@ const Profile = () => {
                   onChange={handleChange}
                   rows="5"
                   placeholder="Tell us about yourself..."
-                  maxLength="1000"
                 />
-                <small>{formData.bio.length}/1000 characters</small>
-              </div>
-
-              <div className="profile-section">
-                <h2>Skills</h2>
-                <div className="skills-input">
-                  <input
-                    type="text"
-                    value={newSkill}
-                    onChange={(e) => setNewSkill(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
-                    placeholder="Add a skill"
-                  />
-                  <button type="button" onClick={handleAddSkill} className="btn-add-skill">
-                    Add
-                  </button>
-                </div>
-                <div className="skills-list">
-                  {formData.skills.map((skill, index) => (
-                    <span key={index} className="skill-tag editable">
-                      {skill}
-                      <button type="button" onClick={() => handleRemoveSkill(skill)}>×</button>
-                    </span>
-                  ))}
-                </div>
+                <small>{formData.bio.length} characters</small>
               </div>
 
               <div className="profile-section">

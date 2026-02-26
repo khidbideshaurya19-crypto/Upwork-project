@@ -18,11 +18,13 @@ const Profile = () => {
     foundedYear: '',
     industry: '',
     skills: [],
+    specializations: [],
     linkedin: '',
     twitter: '',
     github: ''
   });
   const [newSkill, setNewSkill] = useState('');
+  const [newSpecialization, setNewSpecialization] = useState('');
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
@@ -49,6 +51,7 @@ const Profile = () => {
         foundedYear: userData.foundedYear || '',
         industry: userData.industry || '',
         skills: userData.skills || [],
+        specializations: userData.specializations || [],
         linkedin: userData.socialLinks?.linkedin || '',
         twitter: userData.socialLinks?.twitter || '',
         github: userData.socialLinks?.github || ''
@@ -82,6 +85,23 @@ const Profile = () => {
     });
   };
 
+  const handleAddSpecialization = () => {
+    if (newSpecialization.trim() && !formData.specializations.includes(newSpecialization.trim())) {
+      setFormData({
+        ...formData,
+        specializations: [...formData.specializations, newSpecialization.trim()]
+      });
+      setNewSpecialization('');
+    }
+  };
+
+  const handleRemoveSpecialization = (specializationToRemove) => {
+    setFormData({
+      ...formData,
+      specializations: formData.specializations.filter(spec => spec !== specializationToRemove)
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -90,7 +110,8 @@ const Profile = () => {
     try {
       await api.put('/profile', {
         ...formData,
-        skills: JSON.stringify(formData.skills)
+        skills: JSON.stringify(formData.skills),
+        specializations: JSON.stringify(formData.specializations)
       });
 
       setMessage('Profile updated successfully!');
@@ -208,6 +229,19 @@ const Profile = () => {
                     ))
                   ) : (
                     <p>No expertise areas added yet</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Specializations</h2>
+                <div className="skills-display">
+                  {formData.specializations.length > 0 ? (
+                    formData.specializations.map((spec, index) => (
+                      <span key={index} className="skill-tag">{spec}</span>
+                    ))
+                  ) : (
+                    <p>No specializations added yet</p>
                   )}
                 </div>
               </div>
@@ -344,9 +378,8 @@ const Profile = () => {
                   onChange={handleChange}
                   rows="5"
                   placeholder="Tell us about your company..."
-                  maxLength="1000"
                 />
-                <small>{formData.bio.length}/1000 characters</small>
+                <small>{formData.bio.length} characters</small>
               </div>
 
               <div className="profile-section">
@@ -368,6 +401,30 @@ const Profile = () => {
                     <span key={index} className="skill-tag editable">
                       {skill}
                       <button type="button" onClick={() => handleRemoveSkill(skill)}>×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <h2>Specializations</h2>
+                <div className="skills-input">
+                  <input
+                    type="text"
+                    value={newSpecialization}
+                    onChange={(e) => setNewSpecialization(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSpecialization())}
+                    placeholder="Add a specialization"
+                  />
+                  <button type="button" onClick={handleAddSpecialization} className="btn-add-skill">
+                    Add
+                  </button>
+                </div>
+                <div className="skills-list">
+                  {formData.specializations.map((spec, index) => (
+                    <span key={index} className="skill-tag editable">
+                      {spec}
+                      <button type="button" onClick={() => handleRemoveSpecialization(spec)}>×</button>
                     </span>
                   ))}
                 </div>

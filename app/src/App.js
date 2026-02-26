@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import PrivateRoute from './components/PrivateRoute';
 import RoleSelection from './pages/RoleSelection';
 import Landing from './pages/Landing';
@@ -15,6 +16,7 @@ import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import SearchCompany from './pages/SearchCompany';
 import Payments from './pages/Payments';
+import ApplicationStatus from './pages/ApplicationStatus';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
 import AdminProjects from './pages/AdminProjects';
@@ -48,8 +50,9 @@ const AdminRoute = ({ children }) => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <ThemeProvider>
+      <AuthProvider>
+        <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/get-started" element={<RoleSelection />} />
@@ -127,6 +130,14 @@ function App() {
               </PrivateRoute>
             } 
           />
+          <Route 
+            path="/application-status" 
+            element={
+              <PrivateRoute>
+                <ApplicationStatus />
+              </PrivateRoute>
+            } 
+          />
 
           {/* Admin Routes */}
           <Route 
@@ -170,6 +181,7 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
+    </ThemeProvider>
   );
 }
 

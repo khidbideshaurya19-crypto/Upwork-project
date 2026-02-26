@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getAllUsers, updateUserStatus, deleteUser } from '../utils/api';
 import './Users.css';
 
 const Users = () => {
   const [users, setUsers] = useState([]);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [role, setRole] = useState('');
   const [search, setSearch] = useState('');
@@ -13,11 +13,7 @@ const Users = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [blockReason, setBlockReason] = useState('');
 
-  useEffect(() => {
-    fetchUsers();
-  }, [page, limit, role, search]);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await getAllUsers(page, limit, role, search);
@@ -28,7 +24,11 @@ const Users = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, limit, role, search]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
 
   const handleBlockUser = async (userId) => {
     if (!blockReason && !window.confirm('Block this user?')) return;

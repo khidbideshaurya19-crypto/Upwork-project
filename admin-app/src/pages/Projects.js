@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getAllProjects, updateProjectStatus, deleteProject } from '../utils/api';
 import './Projects.css';
 
 const Projects = () => {
   const [projects, setProjects] = useState([]);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
@@ -14,11 +14,7 @@ const Projects = () => {
   const [newStatus, setNewStatus] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
 
-  useEffect(() => {
-    fetchProjects();
-  }, [page, limit, status, search]);
-
-  const fetchProjects = async () => {
+  const fetchProjects = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await getAllProjects(page, limit, status, search);
@@ -29,7 +25,11 @@ const Projects = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [page, limit, status, search]);
+
+  useEffect(() => {
+    fetchProjects();
+  }, [fetchProjects]);
 
   const handleStatusChange = async (projectId) => {
     if (!newStatus) {

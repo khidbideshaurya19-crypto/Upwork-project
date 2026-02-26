@@ -2,33 +2,36 @@
 .messages-container.whatsapp-style {
   display: flex;
   height: calc(100vh - 70px);
-  background: #f0f2f5;
+  background: var(--bg-secondary);
   position: relative;
+  transition: background-color 0.3s ease;
 }
 
 /* Left Sidebar - Conversations List */
 .conversations-sidebar {
   width: 380px;
-  background: white;
-  border-right: 1px solid #d1d7db;
+  background: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   box-shadow: 2px 0 5px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .sidebar-header {
   padding: 20px;
-  background: #f0f2f5;
-  border-bottom: 1px solid #d1d7db;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .sidebar-header h2 {
   margin: 0;
   font-size: 24px;
-  color: #111b21;
+  color: var(--text-primary);
   font-weight: 600;
 }
 

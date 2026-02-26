@@ -15,10 +15,50 @@ const PostProject = () => {
     budget: '',
     budgetType: 'fixed',
     duration: '',
-    skills: ''
+    skills: []
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const availableSkills = [
+    'React',
+    'Node.js',
+    'Python',
+    'Vue.js',
+    'Angular',
+    'TypeScript',
+    'JavaScript',
+    'MongoDB',
+    'PostgreSQL',
+    'MySQL',
+    'AWS',
+    'Docker',
+    'Kubernetes',
+    'GraphQL',
+    'REST API',
+    'Mobile Development',
+    'iOS',
+    'Android',
+    'React Native',
+    'Flutter',
+    'UI/UX Design',
+    'Figma',
+    'Adobe XD',
+    'Machine Learning',
+    'TensorFlow',
+    'Data Analysis',
+    'DevOps',
+    'CI/CD',
+    'Git',
+    'Blockchain',
+    'Solidity',
+    'Web3',
+    'QA Testing',
+    'Selenium',
+    'Jest',
+    'Agile',
+    'Scrum'
+  ];
 
   const categories = [
     'Web Development',
@@ -40,18 +80,23 @@ const PostProject = () => {
     });
   };
 
+  const handleRemoveSkill = (skillToRemove) => {
+    setFormData({
+      ...formData,
+      skills: formData.skills.filter(skill => skill !== skillToRemove)
+    });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const skillsArray = formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill);
-      
       const projectData = {
         ...formData,
         budget: parseFloat(formData.budget),
-        skills: skillsArray
+        skills: formData.skills
       };
 
       await api.post('/projects', projectData);
@@ -164,16 +209,79 @@ const PostProject = () => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="skills">Required Skills</label>
-            <input
-              type="text"
-              id="skills"
-              name="skills"
-              value={formData.skills}
-              onChange={handleChange}
-              placeholder="e.g., React, Node.js, MongoDB (comma separated)"
-            />
-            <small>Enter skills separated by commas</small>
+            <label>Required Skills</label>
+            <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '10px' }}>Click to select skills:</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
+              {availableSkills.map((skill) => (
+                <button
+                  key={skill}
+                  type="button"
+                  onClick={() => {
+                    if (formData.skills.includes(skill)) {
+                      handleRemoveSkill(skill);
+                    } else {
+                      setFormData({
+                        ...formData,
+                        skills: [...formData.skills, skill]
+                      });
+                    }
+                  }}
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: formData.skills.includes(skill) ? '#007bff' : '#e9ecef',
+                    color: formData.skills.includes(skill) ? 'white' : '#333',
+                    border: formData.skills.includes(skill) ? '2px solid #0056b3' : '2px solid #ddd',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  {formData.skills.includes(skill) ? '✓ ' : ''}
+                  {skill}
+                </button>
+              ))}
+            </div>
+            {formData.skills.length > 0 && (
+              <div style={{ marginTop: '10px' }}>
+                <p style={{ fontSize: '0.9rem', color: '#666', marginBottom: '8px' }}>Selected skills:</p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {formData.skills.map((skill) => (
+                    <span
+                      key={skill}
+                      style={{
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      {skill}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSkill(skill)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'white',
+                          cursor: 'pointer',
+                          fontSize: '1.2rem',
+                          padding: '0',
+                          lineHeight: '1'
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="form-actions">
