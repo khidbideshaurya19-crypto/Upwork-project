@@ -102,39 +102,101 @@ const BrowseFreelancers = () => {
                 }}
               >
                 <div style={{
-                  width: '48px',
-                  height: '48px',
-                  background: '#0d6efd',
-                  color: '#fff',
-                  borderRadius: '50%',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: '20px',
-                  fontWeight: '600',
-                  marginBottom: '12px'
+                  gap: '12px',
+                  marginBottom: '16px'
                 }}>
-                  {(freelancer.companyName || freelancer.name)?.charAt(0).toUpperCase()}
+                  <div style={{
+                    width: '64px',
+                    height: '64px',
+                    background: freelancer.profileImage ? 'transparent' : '#0d6efd',
+                    color: '#fff',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '24px',
+                    fontWeight: '600',
+                    flexShrink: 0,
+                    overflow: 'hidden',
+                    border: '3px solid #e5e7eb'
+                  }}>
+                    {freelancer.profileImage ? (
+                      <img 
+                        src={freelancer.profileImage.startsWith('http') ? freelancer.profileImage : `http://localhost:5000${freelancer.profileImage}`}
+                        alt={freelancer.companyName || freelancer.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    ) : (
+                      (freelancer.companyName || freelancer.name)?.charAt(0).toUpperCase()
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{
+                      fontSize: '18px',
+                      fontWeight: '600',
+                      color: '#1f57c3',
+                      margin: '0 0 4px',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {freelancer.companyName || freelancer.name}
+                    </h3>
+                    {freelancer.industry && (
+                      <p style={{
+                        fontSize: '12px',
+                        color: '#6b7280',
+                        margin: 0
+                      }}>
+                        {freelancer.industry}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <h3 style={{
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  color: '#1f57c3',
-                  margin: '0 0 6px',
-                  cursor: 'pointer'
-                }}>
-                  {freelancer.companyName || freelancer.name}
-                </h3>
+                {/* Bio Section */}
+                {freelancer.bio && (
+                  <div style={{
+                    background: '#f8fafc',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    marginBottom: '12px',
+                    border: '1px solid #e5e7eb'
+                  }}>
+                    <p style={{
+                      fontSize: '13px',
+                      color: '#475569',
+                      margin: 0,
+                      lineHeight: '1.6',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 3,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {freelancer.bio}
+                    </p>
+                  </div>
+                )}
 
-                <p style={{
-                  fontSize: '13px',
-                  color: '#6b7280',
-                  margin: '0 0 12px',
-                  lineHeight: '1.5'
-                }}>
-                  {freelancer.description || 'No description provided'}
-                </p>
+                {/* Description (fallback if no bio) */}
+                {!freelancer.bio && freelancer.description && (
+                  <p style={{
+                    fontSize: '13px',
+                    color: '#6b7280',
+                    margin: '0 0 12px',
+                    lineHeight: '1.5'
+                  }}>
+                    {freelancer.description}
+                  </p>
+                )}
 
                 <div style={{
                   display: 'flex',

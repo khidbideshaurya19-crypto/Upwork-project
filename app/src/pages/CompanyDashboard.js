@@ -18,6 +18,11 @@ const CompanyDashboard = () => {
   const [browseTab, setBrowseTab] = useState('best');
   const [savedJobs, setSavedJobs] = useState([]);
   const [collapsedSections, setCollapsedSections] = useState({});
+  const [showFilterModal, setShowFilterModal] = useState(false);
+  const [filters, setFilters] = useState({
+    timeframe: '',
+    industry: ''
+  });
 
   useEffect(() => {
     fetchProjects();
@@ -164,7 +169,61 @@ const CompanyDashboard = () => {
     }));
   };
 
-  const displayProjects = [...projects].sort((a, b) => {
+  const applyFilters = (projectsList) => {
+    let filtered = [...projectsList];
+
+    // Time filter
+    if (filters.timeframe) {
+      const now = new Date();
+      filtered = filtered.filter(project => {
+        const postedDate = new Date(project.createdAt);
+        const diffMs = now - postedDate;
+        const diffHours = diffMs / (1000 * 60 * 60);
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+        switch (filters.timeframe) {
+          case '24hr':
+            return diffHours <= 24;
+          case '3days':
+            return diffDays <= 3;
+          case '7days':
+            return diffDays <= 7;
+          case '30days':
+            return diffDays <= 30;
+          default:
+            return true;
+        }
+      });
+    }
+
+    // Industry filter
+    if (filters.industry) {
+      filtered = filtered.filter(project => 
+        project.category?.toLowerCase().includes(filters.industry.toLowerCase()) ||
+        project.industry?.toLowerCase().includes(filters.industry.toLowerCase())
+      );
+    }
+
+    return filtered;
+  };
+
+  const handleFilterChange = (type, value) => {
+    setFilters(prev => ({
+      ...prev,
+      [type]: prev[type] === value ? '' : value
+    }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      timeframe: '',
+      industry: ''
+    });
+  };
+
+  const activeFilterCount = Object.values(filters).filter(v => v).length;
+
+  const displayProjects = applyFilters([...projects]).sort((a, b) => {
     if (browseTab === 'recent') {
       return new Date(b.createdAt) - new Date(a.createdAt);
     }
@@ -214,20 +273,19 @@ const CompanyDashboard = () => {
           <span className="upw-meta-light">📍 {project.location || 'Remote'}</span>
         </div>
 
-        <p className="upw-proposals">Proposals: {project.applicantsCount || 0}</p>
-      </div>
-      
-      <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e7eb' }}>
-        <button 
-          className="btn-primary" 
-          style={{ width: '100%', padding: '10px', fontSize: '14px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-          onClick={(e) => handleStartChatFromProject(project, e)}
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-          </svg>
-          Chat with Client
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px' }}>
+          <p className="upw-proposals" style={{ margin: 0 }}>Proposals: {project.applicantsCount || 0}</p>
+          <button 
+            className="btn-primary" 
+            style={{ padding: '6px 14px', fontSize: '13px', display: 'inline-flex', alignItems: 'center', gap: '6px', width: 'auto' }}
+            onClick={(e) => handleStartChatFromProject(project, e)}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Chat with Client
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -270,9 +328,9 @@ const CompanyDashboard = () => {
                 <button className={`upw-tab ${browseTab === 'recent' ? 'active' : ''}`} onClick={() => setBrowseTab('recent')}>Most Recent</button>
                 <button className={`upw-tab ${browseTab === 'saved' ? 'active' : ''}`} onClick={() => setBrowseTab('saved')}>Saved Jobs</button>
               </div>
-              <button className="upw-filters-btn">
+              <button className="upw-filters-btn" onClick={() => setShowFilterModal(true)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="20" y2="12"/><line x1="12" y1="18" x2="20" y2="18"/></svg>
-                Filters
+                Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
               </button>
             </div>
 
@@ -300,13 +358,61 @@ const CompanyDashboard = () => {
               <aside className="upw-sidebar">
                 <div className="upw-side-card">
                   <div className="upw-side-header" onClick={() => toggleSection('profile')}>
-                    <h3>Profile completeness</h3>
+                    <h3>My Profile</h3>
                     <span className={`upw-chevron ${collapsedSections.profile ? 'collapsed' : ''}`}>&#9650;</span>
                   </div>
                   {!collapsedSections.profile && (
                     <div className="upw-side-body">
-                      <p>Increase your profile visibility in search results and win more work.</p>
-                      <button className="upw-green-link" onClick={() => navigate('/profile')}>Complete your profile</button>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+                        <div style={{
+                          width: '80px',
+                          height: '80px',
+                          borderRadius: '50%',
+                          background: user?.profileImage ? 'transparent' : '#0d6efd',
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '32px',
+                          fontWeight: '600',
+                          marginBottom: '12px',
+                          overflow: 'hidden',
+                          border: '3px solid #e5e7eb'
+                        }}>
+                          {user?.profileImage ? (
+                            <img 
+                              src={user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:5000${user.profileImage}`}
+                              alt={user?.name || 'Profile'}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover'
+                              }}
+                            />
+                          ) : (
+                            user?.name?.charAt(0).toUpperCase() || 'U'
+                          )}
+                        </div>
+                        <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#0f172a', margin: '0 0 8px', textAlign: 'center' }}>
+                          {user?.companyName || user?.name}
+                        </h4>
+                        {user?.bio && (
+                          <p style={{
+                            fontSize: '13px',
+                            color: '#6b7280',
+                            lineHeight: '1.6',
+                            textAlign: 'center',
+                            margin: '0 0 12px',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}>
+                            {user.bio}
+                          </p>
+                        )}
+                      </div>
+                      <button className="upw-green-link" onClick={() => navigate('/profile')}>Edit Profile</button>
                     </div>
                   )}
                 </div>
@@ -395,6 +501,117 @@ const CompanyDashboard = () => {
           </>
         )}
       </div>
+
+      {/* Filter Modal */}
+      {showFilterModal && (
+        <div className="filter-modal-overlay" onClick={() => setShowFilterModal(false)}>
+          <div className="filter-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="filter-modal-header">
+              <h2>Filter Jobs</h2>
+              <button className="filter-close-btn" onClick={() => setShowFilterModal(false)}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+
+            <div className="filter-modal-body">
+              <div className="filter-section">
+                <h3>Posted Within</h3>
+                <div className="filter-options">
+                  <button 
+                    className={`filter-option-btn ${filters.timeframe === '24hr' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('timeframe', '24hr')}
+                  >
+                    Past 24 hours
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.timeframe === '3days' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('timeframe', '3days')}
+                  >
+                    Past 3 days
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.timeframe === '7days' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('timeframe', '7days')}
+                  >
+                    Past week
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.timeframe === '30days' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('timeframe', '30days')}
+                  >
+                    Past month
+                  </button>
+                </div>
+              </div>
+
+              <div className="filter-section">
+                <h3>Industry</h3>
+                <div className="filter-options">
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'marketing' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'marketing')}
+                  >
+                    Marketing
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'tech' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'tech')}
+                  >
+                    Tech
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'banking' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'banking')}
+                  >
+                    Banking
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'accounting' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'accounting')}
+                  >
+                    Accounting
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'design' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'design')}
+                  >
+                    Design
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'writing' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'writing')}
+                  >
+                    Writing
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'consulting' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'consulting')}
+                  >
+                    Consulting
+                  </button>
+                  <button 
+                    className={`filter-option-btn ${filters.industry === 'healthcare' ? 'active' : ''}`}
+                    onClick={() => handleFilterChange('industry', 'healthcare')}
+                  >
+                    Healthcare
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="filter-modal-footer">
+              <button className="filter-clear-btn" onClick={clearFilters}>
+                Clear All
+              </button>
+              <button className="filter-apply-btn" onClick={() => setShowFilterModal(false)}>
+                Apply Filters
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

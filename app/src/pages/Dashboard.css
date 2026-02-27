@@ -67,7 +67,7 @@
   font-size: 28px;
   font-weight: 500;
   color: #0f172a;
-  margin: 0 0 20px;
+  margin: 24px 0 20px;
   letter-spacing: -0.3px;
 }
 
@@ -198,8 +198,8 @@
 }
 
 .upw-icon-btn.saved svg {
-  fill: #ef4444;
-  stroke: #ef4444;
+  fill: #0f172a;
+  stroke: #0f172a;
 }
 
 .status-badge {
@@ -465,7 +465,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin: 24px 0 24px;
 }
 
 .dashboard-header h1 {
@@ -632,5 +632,189 @@
 
   .projects-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+/* =============== FILTER MODAL =============== */
+.filter-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.filter-modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.filter-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.filter-modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.filter-close-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+  color: #6b7280;
+}
+
+.filter-close-btn:hover {
+  background: #f0f4ff;
+  color: #0d6efd;
+}
+
+.filter-modal-body {
+  padding: 24px;
+}
+
+.filter-section {
+  margin-bottom: 32px;
+}
+
+.filter-section:last-child {
+  margin-bottom: 0;
+}
+
+.filter-section h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-option-btn {
+  padding: 8px 16px;
+  border: 2px solid #d5dff5;
+  background: white;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-option-btn:hover {
+  border-color: #0d6efd;
+  color: #0d6efd;
+  background: #f0f4ff;
+}
+
+.filter-option-btn.active {
+  border-color: #0d6efd;
+  background: #0d6efd;
+  color: white;
+}
+
+.filter-modal-footer {
+  display: flex;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
+}
+
+.filter-clear-btn {
+  padding: 10px 20px;
+  border: 2px solid #d5dff5;
+  background: white;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-clear-btn:hover {
+  border-color: #6b7280;
+  background: #f3f4f6;
+}
+
+.filter-apply-btn {
+  padding: 10px 24px;
+  border: none;
+  background: #0d6efd;
+  color: white;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.filter-apply-btn:hover {
+  background: #0b5ed7;
+}
+
+@media (max-width: 600px) {
+  .filter-modal {
+    max-width: 100%;
+    margin: 0;
+    border-radius: 12px 12px 0 0;
+    max-height: 95vh;
+  }
+
+  .filter-modal-overlay {
+    padding: 0;
+    align-items: flex-end;
+  }
+
+  .filter-options {
+    gap: 8px;
+  }
+
+  .filter-option-btn {
+    font-size: 13px;
+    padding: 7px 14px;
   }
 }
