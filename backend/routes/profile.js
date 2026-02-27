@@ -1,21 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
+const { db } = require('../firebase');
 const { auth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const bcrypt = require('bcryptjs');
 
 // @route   GET /api/profile
-// @desc    Get current user profile
-// @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ user });
+    const userDoc = await db.collection('users').doc(req.userId).get();
+    if (!userDoc.exists) return res.status(404).json({ message: 'User not found' });
+    const userData = userDoc.data();
+    delete userData.password;
+    res.json({ user: { id: userDoc.id, ...userData } });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ message: 'Server error while fetching profile' });
@@ -23,17 +20,13 @@ router.get('/', auth, async (req, res) => {
 });
 
 // @route   GET /api/profile/:userId
-// @desc    Get user profile by ID (public view)
-// @access  Public
 router.get('/:userId', async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ user });
+    const userDoc = await db.collection('users').doc(req.params.userId).get();
+    if (!userDoc.exists) return res.status(404).json({ message: 'User not found' });
+    const userData = userDoc.data();
+    delete userData.password;
+    res.json({ user: { id: userDoc.id, ...userData } });
   } catch (error) {
     console.error('Get user profile error:', error);
     res.status(500).json({ message: 'Server error while fetching user profile' });
@@ -41,72 +34,59 @@ router.get('/:userId', async (req, res) => {
 });
 
 // @route   PUT /api/profile
-// @desc    Update current user profile
-// @access  Private
 router.put('/', [auth, upload.single('profileImage')], async (req, res) => {
   try {
     const {
-      name,
-      companyName,
-      description,
-      location,
-      phone,
-      website,
-      bio,
-      industry,
-      companySize,
-      foundedYear,
-      linkedin,
-      twitter,
-      github,
-      skills
+      name, companyName, description, location, phone, website,
+      bio, industry, companySize, foundedYear, linkedin, twitter, github, skills, specializations
     } = req.body;
 
-    const user = await User.findById(req.userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const userDoc = await db.collection('users').doc(req.userId).get();
+    if (!userDoc.exists) return res.status(404).json({ message: 'User not found' });
+    const user = userDoc.data();
 
-    // Update basic fields
-    if (name) user.name = name;
-    if (location) user.location = location;
-    if (phone) user.phone = phone;
-    if (website) user.website = website;
-    if (bio) user.bio = bio;
-    if (industry) user.industry = industry;
+    const updates = { updatedAt: new Date() };
+    if (name) updates.name = name;
+    if (location !== undefined) updates.location = location;
+    if (phone !== undefined) updates.phone = phone;
+    if (website !== undefined) updates.website = website;
+    if (bio !== undefined) updates.bio = bio;
+    if (industry !== undefined) updates.industry = industry;
 
-    // Update role-specific fields
     if (user.role === 'company') {
-      if (companyName) user.companyName = companyName;
-      if (description) user.description = description;
-      if (companySize) user.companySize = companySize;
-      if (foundedYear) user.foundedYear = foundedYear;
+      if (companyName) updates.companyName = companyName;
+      if (description !== undefined) updates.description = description;
+      if (companySize !== undefined) updates.companySize = companySize;
+      if (foundedYear !== undefined) updates.foundedYear = foundedYear;
     }
 
-    // Update skills (parse if string)
-    if (skills) {
-      user.skills = typeof skills === 'string' ? JSON.parse(skills) : skills;
+    if (skills !== undefined) {
+      updates.skills = typeof skills === 'string' ? JSON.parse(skills) : skills;
+    }
+    if (specializations !== undefined) {
+      updates.specializations = typeof specializations === 'string' ? JSON.parse(specializations) : specializations;
     }
 
-    // Update social links
-    if (linkedin || twitter || github) {
-      user.socialLinks = {
-        linkedin: linkedin || user.socialLinks?.linkedin || '',
-        twitter: twitter || user.socialLinks?.twitter || '',
-        github: github || user.socialLinks?.github || ''
+    if (linkedin !== undefined || twitter !== undefined || github !== undefined) {
+      const existing = user.socialLinks || {};
+      updates.socialLinks = {
+        linkedin: linkedin !== undefined ? linkedin : (existing.linkedin || ''),
+        twitter: twitter !== undefined ? twitter : (existing.twitter || ''),
+        github: github !== undefined ? github : (existing.github || '')
       };
     }
 
-    // Update profile image if uploaded
     if (req.file) {
-      user.profileImage = `/uploads/${req.file.filename}`;
+      updates.profileImage = `/uploads/${req.file.filename}`;
     }
 
-    await user.save();
+    await db.collection('users').doc(req.userId).update(updates);
 
-    const updatedUser = await User.findById(req.userId).select('-password');
-    res.json({ message: 'Profile updated successfully', user: updatedUser });
+    const updatedDoc = await db.collection('users').doc(req.userId).get();
+    const updatedData = updatedDoc.data();
+    delete updatedData.password;
+
+    res.json({ message: 'Profile updated successfully', user: { id: req.userId, ...updatedData } });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ message: 'Server error while updating profile' });
@@ -114,8 +94,6 @@ router.put('/', [auth, upload.single('profileImage')], async (req, res) => {
 });
 
 // @route   PUT /api/profile/password
-// @desc    Change password
-// @access  Private
 router.put('/password', auth, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
@@ -123,26 +101,19 @@ router.put('/password', auth, async (req, res) => {
     if (!currentPassword || !newPassword) {
       return res.status(400).json({ message: 'Please provide current and new password' });
     }
-
     if (newPassword.length < 6) {
       return res.status(400).json({ message: 'New password must be at least 6 characters' });
     }
 
-    const user = await User.findById(req.userId);
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    const userDoc = await db.collection('users').doc(req.userId).get();
+    if (!userDoc.exists) return res.status(404).json({ message: 'User not found' });
+    const user = userDoc.data();
 
-    // Verify current password
-    const isMatch = await user.comparePassword(currentPassword);
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Current password is incorrect' });
-    }
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) return res.status(400).json({ message: 'Current password is incorrect' });
 
-    // Update password
-    user.password = newPassword;
-    await user.save();
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await db.collection('users').doc(req.userId).update({ password: hashedPassword, updatedAt: new Date() });
 
     res.json({ message: 'Password updated successfully' });
   } catch (error) {

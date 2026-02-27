@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { db } = require('../firebase');
 
 const adminAuth = (req, res, next) => {
   try {
@@ -20,12 +21,13 @@ const adminAuth = (req, res, next) => {
 const checkPermission = (permissionKey) => {
   return async (req, res, next) => {
     try {
-      const Admin = require('../models/Admin');
-      const admin = await Admin.findById(req.adminId);
+      const adminDoc = await db.collection('admins').doc(req.adminId).get();
 
-      if (!admin) {
+      if (!adminDoc.exists) {
         return res.status(401).json({ message: 'Admin not found' });
       }
+
+      const admin = adminDoc.data();
 
       // Super admin has all permissions
       if (admin.role === 'super_admin') {
@@ -33,7 +35,7 @@ const checkPermission = (permissionKey) => {
       }
 
       // Check specific permission
-      if (!admin.permissions[permissionKey]) {
+      if (!admin.permissions || !admin.permissions[permissionKey]) {
         return res.status(403).json({ message: 'Insufficient permissions' });
       }
 
@@ -45,3 +47,4 @@ const checkPermission = (permissionKey) => {
 };
 
 module.exports = { adminAuth, checkPermission };
+

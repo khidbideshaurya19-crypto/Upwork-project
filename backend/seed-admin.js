@@ -1,30 +1,27 @@
-const mongoose = require('mongoose');
-const Admin = require('./models/Admin');
-require('dotenv').config();
+﻿require("dotenv").config();
+const bcrypt = require("bcryptjs");
+const { db } = require("./firebase");
 
 const seedAdmin = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/upwork');
-    console.log('✅ Connected to MongoDB');
+    const email = "admin@upwork.com";
+    const password = "Admin@123";
+    const name = "Super Admin";
 
-    // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ email: 'admin@upwork.com' });
-    
-    if (existingAdmin) {
-      console.log('ℹ️  Admin user already exists');
-      console.log('\n📋 Admin Credentials:');
-      console.log('   Email: admin@upwork.com');
-      console.log('   Password: Admin@123456');
-      await mongoose.connection.close();
-      return;
+    const existing = await db.collection("admins").where("email", "==", email).limit(1).get();
+    if (!existing.empty) {
+      console.log("Admin already exists:", email);
+      process.exit(0);
     }
 
-    // Create super admin
-    const admin = new Admin({
-      name: 'Super Admin',
-      email: 'admin@upwork.com',
-      password: 'Admin@123456',
-      role: 'super_admin',
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const now = new Date();
+
+    const adminData = {
+      name,
+      email,
+      password: hashedPassword,
+      role: "super_admin",
       permissions: {
         manageUsers: true,
         manageProjects: true,
@@ -32,42 +29,21 @@ const seedAdmin = async () => {
         viewAnalytics: true,
         manageTransactions: true,
         systemSettings: true
-      }
-    });
+      },
+      isActive: true,
+      lastLogin: null,
+      createdAt: now,
+      updatedAt: now
+    };
 
-    await admin.save();
-    console.log('✅ Admin user created successfully!');
-    console.log('\n📋 Admin Credentials:');
-    console.log('   Email: admin@upwork.com');
-    console.log('   Password: Admin@123456');
-    console.log('\n🔐 Access Admin Panel: http://localhost:3002');
-
-    // Create moderator admin
-    const moderator = new Admin({
-      name: 'Moderator',
-      email: 'moderator@upwork.com',
-      password: 'Moderator@123',
-      role: 'moderator',
-      permissions: {
-        manageUsers: true,
-        manageProjects: true,
-        manageDisputes: true,
-        viewAnalytics: false,
-        manageTransactions: false,
-        systemSettings: false
-      }
-    });
-
-    await moderator.save();
-    console.log('\n📋 Moderator Credentials:');
-    console.log('   Email: moderator@upwork.com');
-    console.log('   Password: Moderator@123');
-
-    await mongoose.connection.close();
-    console.log('\n✅ Database seeding completed!');
+    const docRef = await db.collection("admins").add(adminData);
+    console.log("Admin seeded successfully!");
+    console.log("Email:", email);
+    console.log("Password:", password);
+    console.log("Firestore ID:", docRef.id);
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error seeding admin:', error);
+    console.error("Error seeding admin:", error);
     process.exit(1);
   }
 };

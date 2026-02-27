@@ -1,50 +1,35 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
-const User = require('../models/User');
+const { db } = require('../firebase');
 const { auth } = require('../middleware/auth');
 
-// Search users (clients for companies, companies for clients)
+// GET /api/search
 router.get('/', auth, async (req, res) => {
   try {
-    const { query, type } = req.query;
+    const { query } = req.query;
     const currentUser = req.user;
 
-    if (!query || query.trim() === '') {
-      return res.json({ users: [] });
-    }
+    if (!query || query.trim() === '') return res.json({ users: [] });
 
-    // Determine what to search for based on current user's role
-    let searchRole;
-    if (currentUser.role === 'client') {
-      // Clients search for companies
-      searchRole = 'company';
-    } else if (currentUser.role === 'company') {
-      // Companies search for clients
-      searchRole = 'client';
-    } else {
-      return res.status(400).json({ message: 'Invalid user role' });
-    }
+    const searchRole = currentUser.role === 'client' ? 'company' : 'client';
+    const q = query.toLowerCase();
 
-    // Build search query
-    const searchQuery = {
-      role: searchRole,
-      $or: [
-        { name: { $regex: query, $options: 'i' } },
-        { email: { $regex: query, $options: 'i' } },
-        { location: { $regex: query, $options: 'i' } },
-        { industry: { $regex: query, $options: 'i' } },
-        { skills: { $in: [new RegExp(query, 'i')] } }
-      ]
-    };
+    const snap = await db.collection('users').where('role', '==', searchRole).get();
+    let users = snap.docs.map(d => {
+      const data = d.data();
+      delete data.password;
+      return { id: d.id, ...data };
+    });
 
-    // If searching for companies, also search companyName
-    if (searchRole === 'company') {
-      searchQuery.$or.push({ companyName: { $regex: query, $options: 'i' } });
-    }
-
-    const users = await User.find(searchQuery)
-      .select('-password')
-      .limit(20);
+    // Client-side filtering (Firestore does not support regex)
+    users = users.filter(u =>
+      u.name?.toLowerCase().includes(q) ||
+      u.email?.toLowerCase().includes(q) ||
+      u.location?.toLowerCase().includes(q) ||
+      u.industry?.toLowerCase().includes(q) ||
+      u.companyName?.toLowerCase().includes(q) ||
+      (u.skills && u.skills.some(s => s.toLowerCase().includes(q)))
+    ).slice(0, 20);
 
     res.json({ users });
   } catch (error) {
@@ -53,16 +38,14 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Get user by ID (public profile view)
+// GET /api/search/user/:userId
 router.get('/user/:userId', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    res.json({ user });
+    const userDoc = await db.collection('users').doc(req.params.userId).get();
+    if (!userDoc.exists) return res.status(404).json({ message: 'User not found' });
+    const data = userDoc.data();
+    delete data.password;
+    res.json({ user: { id: userDoc.id, ...data } });
   } catch (error) {
     console.error('Error fetching user:', error);
     res.status(500).json({ message: 'Server error' });

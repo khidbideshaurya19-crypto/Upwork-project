@@ -1,26 +1,37 @@
-const express = require('express');
+﻿const express = require('express');
 const router = express.Router();
-const Message = require('../models/Message');
-const Conversation = require('../models/Conversation');
-const Application = require('../models/Application');
+const { db } = require('../firebase');
 const { auth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
-// @route   GET /api/messages/conversations
-// @desc    Get all conversations for current user
-// @access  Private
+const getUser = async (id) => {
+  if (!id) return null;
+  const doc = await db.collection('users').doc(id).get();
+  if (!doc.exists) return null;
+  const data = doc.data(); delete data.password;
+  return { id: doc.id, ...data };
+};
+
+// GET /api/messages/conversations
 router.get('/conversations', auth, async (req, res) => {
   try {
-    const query = req.user.role === 'client' 
-      ? { client: req.userId }
-      : { company: req.userId };
+    const field = req.user.role === 'client' ? 'client' : 'company';
+    const snap = await db.collection('conversations').where(field, '==', req.userId).orderBy('lastMessageTime', 'desc').get();
 
-    const conversations = await Conversation.find(query)
-      .populate('project', 'title')
-      .populate('client', 'name email profileImage')
-      .populate('company', 'name companyName email profileImage')
-      .populate('lastMessage')
-      .sort({ lastMessageTime: -1 });
+    const conversations = await Promise.all(snap.docs.map(async d => {
+      const data = d.data();
+      data.client = await getUser(data.client);
+      data.company = await getUser(data.company);
+      if (data.project) {
+        const pDoc = await db.collection('projects').doc(data.project).get();
+        data.project = pDoc.exists ? { id: pDoc.id, title: pDoc.data().title } : null;
+      }
+      if (data.lastMessage) {
+        const mDoc = await db.collection('messages').doc(data.lastMessage).get();
+        data.lastMessage = mDoc.exists ? { id: mDoc.id, ...mDoc.data() } : null;
+      }
+      return { id: d.id, ...data };
+    }));
 
     res.json({ conversations });
   } catch (error) {
@@ -29,30 +40,27 @@ router.get('/conversations', auth, async (req, res) => {
   }
 });
 
-// @route   GET /api/messages/conversation/:conversationId
-// @desc    Get all messages in a conversation
-// @access  Private
+// GET /api/messages/conversation/:conversationId
 router.get('/conversation/:conversationId', auth, async (req, res) => {
   try {
-    const conversation = await Conversation.findById(req.params.conversationId)
-      .populate('client', 'name email profileImage')
-      .populate('company', 'name companyName email profileImage');
+    const convDoc = await db.collection('conversations').doc(req.params.conversationId).get();
+    if (!convDoc.exists) return res.status(404).json({ message: 'Conversation not found' });
+    const convData = convDoc.data();
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
-
-    // Check if user is part of this conversation
-    const isParticipant = conversation.client._id.toString() === req.userId || 
-                         conversation.company._id.toString() === req.userId;
-    
-    if (!isParticipant) {
+    if (convData.client !== req.userId && convData.company !== req.userId) {
       return res.status(403).json({ message: 'Not authorized to view this conversation' });
     }
 
-    const messages = await Message.find({ conversation: req.params.conversationId })
-      .populate('sender', 'name companyName email profileImage')
-      .sort({ createdAt: 1 });
+    convData.client = await getUser(convData.client);
+    convData.company = await getUser(convData.company);
+    const conversation = { id: convDoc.id, ...convData };
+
+    const msgsSnap = await db.collection('messages').where('conversation', '==', req.params.conversationId).orderBy('createdAt', 'asc').get();
+    const messages = await Promise.all(msgsSnap.docs.map(async d => {
+      const data = d.data();
+      data.sender = await getUser(data.sender);
+      return { id: d.id, ...data };
+    }));
 
     res.json({ conversation, messages });
   } catch (error) {
@@ -61,166 +69,84 @@ router.get('/conversation/:conversationId', auth, async (req, res) => {
   }
 });
 
-// @route   POST /api/messages/conversation/:conversationId
-// @desc    Send a message in a conversation
-// @access  Private
+// POST /api/messages/conversation/:conversationId
 router.post('/conversation/:conversationId', [auth, upload.array('attachments', 3)], async (req, res) => {
   try {
     const { content } = req.body;
-    const conversation = await Conversation.findById(req.params.conversationId)
-      .populate('client company');
+    const convDoc = await db.collection('conversations').doc(req.params.conversationId).get();
+    if (!convDoc.exists) return res.status(404).json({ message: 'Conversation not found' });
+    const conv = convDoc.data();
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
-
-    // Check if user is part of this conversation
-    const isParticipant = conversation.client._id.toString() === req.userId || 
-                         conversation.company._id.toString() === req.userId;
-    
-    if (!isParticipant) {
+    if (conv.client !== req.userId && conv.company !== req.userId) {
       return res.status(403).json({ message: 'Not authorized to send messages in this conversation' });
     }
 
-    // Process uploaded files
-    const attachments = req.files ? req.files.map(file => ({
-      filename: file.filename,
-      originalName: file.originalname,
-      path: file.path,
-      mimetype: file.mimetype,
-      size: file.size
-    })) : [];
+    const attachments = req.files ? req.files.map(f => ({ filename: f.filename, originalName: f.originalname, path: f.path, mimetype: f.mimetype, size: f.size })) : [];
+    const now = new Date();
 
-    const message = new Message({
-      conversation: req.params.conversationId,
-      sender: req.userId,
-      senderRole: req.user.role,
-      content,
-      attachments,
-      status: 'sent'
-    });
+    const msgData = { conversation: req.params.conversationId, sender: req.userId, senderRole: req.user.role, content: content || '', attachments, status: 'sent', isEdited: false, editedAt: null, createdAt: now, updatedAt: now };
+    const msgRef = await db.collection('messages').add(msgData);
 
-    await message.save();
-    await message.populate('sender', 'name companyName email');
+    const convUpdates = { lastMessage: msgRef.id, lastMessageTime: now, updatedAt: now };
+    if (req.user.role === 'client') convUpdates.unreadCountCompany = (conv.unreadCountCompany || 0) + 1;
+    else convUpdates.unreadCountClient = (conv.unreadCountClient || 0) + 1;
+    await db.collection('conversations').doc(req.params.conversationId).update(convUpdates);
 
-    // Update conversation
-    conversation.lastMessage = message._id;
-    conversation.lastMessageTime = message.createdAt;
-    
-    // Increment unread count for the other party
-    if (req.user.role === 'client') {
-      conversation.unreadCountCompany += 1;
-    } else {
-      conversation.unreadCountClient += 1;
-    }
-    
-    await conversation.save();
+    const senderData = await getUser(req.userId);
+    const message = { id: msgRef.id, ...msgData, sender: senderData };
 
-    // Emit socket event for real-time delivery
     const io = req.app.get('io');
     if (io) {
       const recipientRole = req.user.role === 'client' ? 'company' : 'client';
-      const recipientId = req.user.role === 'client' 
-        ? conversation.company._id.toString() 
-        : conversation.client._id.toString();
-      
-      // Emit to recipient
-      io.to(`${recipientRole}-${recipientId}`).emit('newMessage', {
-        conversationId: conversation._id,
-        message
-      });
-      
-      // Also emit to sender for sync across devices
-      io.to(`${req.user.role}-${req.userId}`).emit('newMessage', {
-        conversationId: conversation._id,
-        message
-      });
-
-      // Update message status to delivered and notify sender
+      const recipientId = req.user.role === 'client' ? conv.company : conv.client;
+      io.to(`${recipientRole}-${recipientId}`).emit('newMessage', { conversationId: req.params.conversationId, message });
+      io.to(`${req.user.role}-${req.userId}`).emit('newMessage', { conversationId: req.params.conversationId, message });
+      await db.collection('messages').doc(msgRef.id).update({ status: 'delivered', updatedAt: new Date() });
       message.status = 'delivered';
-      await message.save();
-      
-      // Notify sender about delivery status
-      io.to(`${req.user.role}-${req.userId}`).emit('messageStatusUpdate', {
-        conversationId: conversation._id,
-        messageId: message._id,
-        status: 'delivered'
-      });
+      io.to(`${req.user.role}-${req.userId}`).emit('messageStatusUpdate', { conversationId: req.params.conversationId, messageId: msgRef.id, status: 'delivered' });
     }
 
-    res.status(201).json({ message });
+    res.status(201).json(message);
   } catch (error) {
     console.error('Send message error:', error);
     res.status(500).json({ message: 'Server error while sending message' });
   }
 });
 
-// @route   PUT /api/messages/conversation/:conversationId/read
-// @desc    Mark all messages in conversation as read
-// @access  Private
+// PUT /api/messages/conversation/:conversationId/read
 router.put('/conversation/:conversationId/read', auth, async (req, res) => {
   try {
-    const conversation = await Conversation.findById(req.params.conversationId);
+    const convDoc = await db.collection('conversations').doc(req.params.conversationId).get();
+    if (!convDoc.exists) return res.status(404).json({ message: 'Conversation not found' });
+    const conv = convDoc.data();
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
-
-    // Check if user is part of this conversation
-    const isParticipant = conversation.client.toString() === req.userId || 
-                         conversation.company.toString() === req.userId;
-    
-    if (!isParticipant) {
+    if (conv.client !== req.userId && conv.company !== req.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
 
-    // Get messages that need to be marked as read
-    const messagesToUpdate = await Message.find({
-      conversation: req.params.conversationId,
-      sender: { $ne: req.userId },
-      status: { $ne: 'read' }
-    });
+    const msgsSnap = await db.collection('messages')
+      .where('conversation', '==', req.params.conversationId)
+      .where('sender', '!=', req.userId)
+      .get();
 
-    // Mark all unread messages as read
-    await Message.updateMany(
-      {
-        conversation: req.params.conversationId,
-        sender: { $ne: req.userId },
-        status: { $ne: 'read' }
-      },
-      { status: 'read' }
-    );
+    const batch = db.batch();
+    const toUpdate = msgsSnap.docs.filter(d => d.data().status !== 'read');
+    toUpdate.forEach(d => batch.update(d.ref, { status: 'read', updatedAt: new Date() }));
+    await batch.commit();
 
-    // Reset unread count
-    if (req.user.role === 'client') {
-      conversation.unreadCountClient = 0;
-    } else {
-      conversation.unreadCountCompany = 0;
-    }
-    
-    await conversation.save();
+    const convUpdates = { updatedAt: new Date() };
+    if (req.user.role === 'client') convUpdates.unreadCountClient = 0;
+    else convUpdates.unreadCountCompany = 0;
+    await db.collection('conversations').doc(req.params.conversationId).update(convUpdates);
 
-    // Emit socket event to notify sender about each message read
     const io = req.app.get('io');
     if (io) {
-      const otherPartyRole = req.user.role === 'client' ? 'company' : 'client';
-      const otherPartyId = req.user.role === 'client' 
-        ? conversation.company.toString() 
-        : conversation.client.toString();
-      
-      // Emit individual status updates for each message
-      messagesToUpdate.forEach(msg => {
-        io.to(`${otherPartyRole}-${otherPartyId}`).emit('messageStatusUpdate', {
-          conversationId: conversation._id,
-          messageId: msg._id.toString(),
-          status: 'read'
-        });
+      const otherRole = req.user.role === 'client' ? 'company' : 'client';
+      const otherId = req.user.role === 'client' ? conv.company : conv.client;
+      toUpdate.forEach(d => {
+        io.to(`${otherRole}-${otherId}`).emit('messageStatusUpdate', { conversationId: req.params.conversationId, messageId: d.id, status: 'read' });
       });
-      
-      // Also emit general messagesRead event
-      io.to(`${otherPartyRole}-${otherPartyId}`).emit('messagesRead', {
-        conversationId: conversation._id
-      });
+      io.to(`${otherRole}-${otherId}`).emit('messagesRead', { conversationId: req.params.conversationId });
     }
 
     res.json({ message: 'Messages marked as read' });
@@ -230,223 +156,118 @@ router.put('/conversation/:conversationId/read', auth, async (req, res) => {
   }
 });
 
-// @route   POST /api/messages/start
-// @desc    Start a new conversation (when application is accepted or company initiates chat)
-// @access  Private
+// POST /api/messages/start
 router.post('/start', auth, async (req, res) => {
   try {
     const { projectId, companyId, applicationId, clientId } = req.body;
+    if (!projectId) return res.status(400).json({ message: 'projectId is required' });
 
-    console.log('Starting conversation with params:', { projectId, companyId, applicationId, clientId, userId: req.userId, userRole: req.user.role });
+    const projectDoc = await db.collection('projects').doc(projectId).get();
+    if (!projectDoc.exists) return res.status(404).json({ message: 'Project not found' });
+    const project = projectDoc.data();
 
-    if (!projectId) {
-      return res.status(400).json({ message: 'projectId is required' });
-    }
+    let finalClientId = clientId || project.client;
+    let finalCompanyId = companyId || (req.user.role === 'company' ? req.userId : null);
 
-    // Determine client and company IDs
-    let finalClientId = clientId;
-    let finalCompanyId = companyId;
-
-    // If application is provided, validate it
     if (applicationId) {
-      const application = await Application.findById(applicationId).populate('project', 'client');
-
-      if (!application) {
-        return res.status(404).json({ message: 'Application not found' });
-      }
-
-      if (!application.project || application.project._id.toString() !== projectId) {
-        return res.status(400).json({ message: 'Application does not belong to this project' });
-      }
-
-      if (companyId && application.company.toString() !== companyId) {
-        return res.status(400).json({ message: 'Application does not belong to this company' });
-      }
-
-      if (application.status === 'rejected') {
-        return res.status(400).json({ message: 'Conversation cannot start for rejected applications' });
-      }
-
-      finalClientId = application.project.client.toString();
-      finalCompanyId = application.company.toString();
-    } else {
-      // Company initiating chat from project listing
-      const Project = require('../models/Project');
-      const project = await Project.findById(projectId);
-      
-      if (!project) {
-        return res.status(404).json({ message: 'Project not found' });
-      }
-
-      finalClientId = project.client.toString();
-      finalCompanyId = req.user.role === 'company' ? req.userId : companyId;
-
-      if (!finalCompanyId) {
-        return res.status(400).json({ message: 'companyId is required when starting chat from project' });
-      }
-
-      console.log('Project chat - Client:', finalClientId, 'Company:', finalCompanyId);
+      const appDoc = await db.collection('applications').doc(applicationId).get();
+      if (!appDoc.exists) return res.status(404).json({ message: 'Application not found' });
+      const app = appDoc.data();
+      finalClientId = project.client;
+      finalCompanyId = app.company;
     }
 
-    // Check authorization
+    if (!finalCompanyId) return res.status(400).json({ message: 'companyId is required' });
+
     const isProjectClient = req.user.role === 'client' && finalClientId === req.userId;
-    const isCompany = req.user.role === 'company' && finalCompanyId === req.userId;
+    const isCompanyUser = req.user.role === 'company' && finalCompanyId === req.userId;
+    if (!isProjectClient && !isCompanyUser) return res.status(403).json({ message: 'Not authorized to start this conversation' });
 
-    console.log('Authorization check:', { isProjectClient, isCompany, userRole: req.user.role, userId: req.userId });
+    const existSnap = await db.collection('conversations')
+      .where('client', '==', finalClientId).where('company', '==', finalCompanyId).limit(1).get();
 
-    if (!isProjectClient && !isCompany) {
-      return res.status(403).json({ message: 'Not authorized to start this conversation' });
+    if (!existSnap.empty) {
+      const convDoc = existSnap.docs[0];
+      const convData = convDoc.data();
+      convData.client = await getUser(convData.client);
+      convData.company = await getUser(convData.company);
+      if (convData.project) { const pd = await db.collection('projects').doc(convData.project).get(); convData.project = pd.exists ? { id: pd.id, title: pd.data().title } : null; }
+      return res.json({ conversation: { id: convDoc.id, ...convData }, alreadyExists: true });
     }
 
-    // Check if conversation already exists between this client and company (regardless of project)
-    let conversation = await Conversation.findOne({
-      client: finalClientId,
-      company: finalCompanyId
-    });
-
-    if (conversation) {
-      console.log('Found existing conversation:', conversation._id);
-      await conversation.populate([
-        { path: 'project', select: 'title' },
-        { path: 'client', select: 'name email profileImage' },
-        { path: 'company', select: 'name companyName email profileImage' }
-      ]);
-      return res.json({ conversation, alreadyExists: true });
-    }
-
-    // Create new conversation
-    console.log('Creating new conversation for project:', projectId, 'client:', finalClientId, 'company:', finalCompanyId);
-    
-    conversation = new Conversation({
-      project: projectId,
-      application: applicationId || null,
-      client: finalClientId,
-      company: finalCompanyId
-    });
-
-    await conversation.save();
-    console.log('Conversation saved with ID:', conversation._id);
-    
-    await conversation.populate([
-      { path: 'project', select: 'title' },
-      { path: 'client', select: 'name email profileImage' },
-      { path: 'company', select: 'name companyName email profileImage' }
-    ]);
-    console.log('Conversation populated successfully');
+    const now = new Date();
+    const convData = { project: projectId, application: applicationId || null, client: finalClientId, company: finalCompanyId, lastMessage: null, lastMessageTime: now, unreadCountClient: 0, unreadCountCompany: 0, createdAt: now, updatedAt: now };
+    const convRef = await db.collection('conversations').add(convData);
+    const conversation = { id: convRef.id, ...convData };
 
     const io = req.app.get('io');
     if (io) {
-      io.to(`client-${finalClientId}`).emit('conversationStarted', {
-        conversation
-      });
-      io.to(`company-${finalCompanyId}`).emit('conversationStarted', {
-        conversation
-      });
+      io.to(`client-${finalClientId}`).emit('conversationStarted', { conversation });
+      io.to(`company-${finalCompanyId}`).emit('conversationStarted', { conversation });
     }
 
-    console.log('Returning conversation:', conversation._id);
     res.status(201).json({ conversation, alreadyExists: false });
   } catch (error) {
     console.error('Start conversation error:', error);
-    console.error('Error stack:', error.stack);
     res.status(500).json({ message: 'Server error while starting conversation', error: error.message });
   }
 });
 
-// @route   PUT /api/messages/:messageId
-// @desc    Edit a specific message
-// @access  Private
+// PUT /api/messages/:messageId (edit)
 router.put('/:messageId', auth, async (req, res) => {
   try {
     const { content } = req.body;
-    
-    if (!content || !content.trim()) {
-      return res.status(400).json({ message: 'Message content is required' });
-    }
+    if (!content || !content.trim()) return res.status(400).json({ message: 'Message content is required' });
 
-    const message = await Message.findById(req.params.messageId);
+    const msgDoc = await db.collection('messages').doc(req.params.messageId).get();
+    if (!msgDoc.exists) return res.status(404).json({ message: 'Message not found' });
+    const msg = msgDoc.data();
+    if (msg.sender !== req.userId) return res.status(403).json({ message: 'Not authorized to edit this message' });
 
-    if (!message) {
-      return res.status(404).json({ message: 'Message not found' });
-    }
+    const now = new Date();
+    await db.collection('messages').doc(req.params.messageId).update({ content: content.trim(), isEdited: true, editedAt: now, updatedAt: now });
+    const senderData = await getUser(req.userId);
+    const updated = { id: req.params.messageId, ...msg, content: content.trim(), isEdited: true, editedAt: now, sender: senderData };
 
-    // Only sender can edit their own message
-    if (message.sender.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Not authorized to edit this message' });
-    }
-
-    message.content = content.trim();
-    message.isEdited = true;
-    message.editedAt = new Date();
-    await message.save();
-    await message.populate('sender', 'name companyName email');
-
-    // Emit socket event
     const io = req.app.get('io');
     if (io) {
-      const conversation = await Conversation.findById(message.conversation);
-      const recipientRole = req.user.role === 'client' ? 'company' : 'client';
-      const recipientId = req.user.role === 'client' 
-        ? conversation.company.toString() 
-        : conversation.client.toString();
-      
-      io.to(`${recipientRole}-${recipientId}`).emit('messageEdited', {
-        conversationId: message.conversation,
-        message
-      });
-      
-      // Also emit to sender for sync across devices
-      io.to(`${req.user.role}-${req.userId}`).emit('messageEdited', {
-        conversationId: message.conversation,
-        message
-      });
+      const convDoc = await db.collection('conversations').doc(msg.conversation).get();
+      if (convDoc.exists) {
+        const conv = convDoc.data();
+        const recipientRole = req.user.role === 'client' ? 'company' : 'client';
+        const recipientId = req.user.role === 'client' ? conv.company : conv.client;
+        io.to(`${recipientRole}-${recipientId}`).emit('messageEdited', { conversationId: msg.conversation, message: updated });
+        io.to(`${req.user.role}-${req.userId}`).emit('messageEdited', { conversationId: msg.conversation, message: updated });
+      }
     }
 
-    res.json({ message });
+    res.json({ message: updated });
   } catch (error) {
     console.error('Edit message error:', error);
     res.status(500).json({ message: 'Server error while editing message' });
   }
 });
 
-// @route   DELETE /api/messages/:messageId
-// @desc    Delete a specific message
-// @access  Private
+// DELETE /api/messages/:messageId
 router.delete('/:messageId', auth, async (req, res) => {
   try {
-    const message = await Message.findById(req.params.messageId);
+    const msgDoc = await db.collection('messages').doc(req.params.messageId).get();
+    if (!msgDoc.exists) return res.status(404).json({ message: 'Message not found' });
+    const msg = msgDoc.data();
+    if (msg.sender !== req.userId) return res.status(403).json({ message: 'Not authorized to delete this message' });
 
-    if (!message) {
-      return res.status(404).json({ message: 'Message not found' });
-    }
+    await db.collection('messages').doc(req.params.messageId).delete();
 
-    // Only sender can delete their own message
-    if (message.sender.toString() !== req.userId) {
-      return res.status(403).json({ message: 'Not authorized to delete this message' });
-    }
-
-    const conversationId = message.conversation;
-    await Message.findByIdAndDelete(req.params.messageId);
-
-    // Emit socket event
     const io = req.app.get('io');
     if (io) {
-      const conversation = await Conversation.findById(conversationId);
-      const recipientRole = req.user.role === 'client' ? 'company' : 'client';
-      const recipientId = req.user.role === 'client' 
-        ? conversation.company.toString() 
-        : conversation.client.toString();
-      
-      io.to(`${recipientRole}-${recipientId}`).emit('messageDeleted', {
-        conversationId: conversationId,
-        messageId: req.params.messageId
-      });
-      
-      // Also emit to sender for sync across devices
-      io.to(`${req.user.role}-${req.userId}`).emit('messageDeleted', {
-        conversationId: conversationId,
-        messageId: req.params.messageId
-      });
+      const convDoc = await db.collection('conversations').doc(msg.conversation).get();
+      if (convDoc.exists) {
+        const conv = convDoc.data();
+        const recipientRole = req.user.role === 'client' ? 'company' : 'client';
+        const recipientId = req.user.role === 'client' ? conv.company : conv.client;
+        io.to(`${recipientRole}-${recipientId}`).emit('messageDeleted', { conversationId: msg.conversation, messageId: req.params.messageId });
+        io.to(`${req.user.role}-${req.userId}`).emit('messageDeleted', { conversationId: msg.conversation, messageId: req.params.messageId });
+      }
     }
 
     res.json({ message: 'Message deleted successfully' });
@@ -456,42 +277,25 @@ router.delete('/:messageId', auth, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/messages/conversation/:conversationId
-// @desc    Delete entire conversation
-// @access  Private
+// DELETE /api/messages/conversation/:conversationId
 router.delete('/conversation/:conversationId', auth, async (req, res) => {
   try {
-    const conversation = await Conversation.findById(req.params.conversationId);
+    const convDoc = await db.collection('conversations').doc(req.params.conversationId).get();
+    if (!convDoc.exists) return res.status(404).json({ message: 'Conversation not found' });
+    const conv = convDoc.data();
+    if (conv.client !== req.userId && conv.company !== req.userId) return res.status(403).json({ message: 'Not authorized' });
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
+    const msgsSnap = await db.collection('messages').where('conversation', '==', req.params.conversationId).get();
+    const batch = db.batch();
+    msgsSnap.docs.forEach(d => batch.delete(d.ref));
+    batch.delete(db.collection('conversations').doc(req.params.conversationId));
+    await batch.commit();
 
-    // Check if user is part of this conversation
-    const isParticipant = conversation.client.toString() === req.userId || 
-                         conversation.company.toString() === req.userId;
-    
-    if (!isParticipant) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
-
-    // Delete all messages in the conversation
-    await Message.deleteMany({ conversation: req.params.conversationId });
-
-    // Delete the conversation
-    await Conversation.findByIdAndDelete(req.params.conversationId);
-
-    // Emit socket event
     const io = req.app.get('io');
     if (io) {
       const recipientRole = req.user.role === 'client' ? 'company' : 'client';
-      const recipientId = req.user.role === 'client' 
-        ? conversation.company.toString() 
-        : conversation.client.toString();
-      
-      io.to(`${recipientRole}-${recipientId}`).emit('conversationDeleted', {
-        conversationId: req.params.conversationId
-      });
+      const recipientId = req.user.role === 'client' ? conv.company : conv.client;
+      io.to(`${recipientRole}-${recipientId}`).emit('conversationDeleted', { conversationId: req.params.conversationId });
     }
 
     res.json({ message: 'Conversation deleted successfully' });
@@ -501,45 +305,26 @@ router.delete('/conversation/:conversationId', auth, async (req, res) => {
   }
 });
 
-// @route   DELETE /api/messages/conversation/:conversationId/clear
-// @desc    Clear chat history (delete all messages but keep conversation)
-// @access  Private
+// DELETE /api/messages/conversation/:conversationId/clear
 router.delete('/conversation/:conversationId/clear', auth, async (req, res) => {
   try {
-    const conversation = await Conversation.findById(req.params.conversationId);
+    const convDoc = await db.collection('conversations').doc(req.params.conversationId).get();
+    if (!convDoc.exists) return res.status(404).json({ message: 'Conversation not found' });
+    const conv = convDoc.data();
+    if (conv.client !== req.userId && conv.company !== req.userId) return res.status(403).json({ message: 'Not authorized' });
 
-    if (!conversation) {
-      return res.status(404).json({ message: 'Conversation not found' });
-    }
+    const msgsSnap = await db.collection('messages').where('conversation', '==', req.params.conversationId).get();
+    const batch = db.batch();
+    msgsSnap.docs.forEach(d => batch.delete(d.ref));
+    await batch.commit();
 
-    // Check if user is part of this conversation
-    const isParticipant = conversation.client.toString() === req.userId || 
-                         conversation.company.toString() === req.userId;
-    
-    if (!isParticipant) {
-      return res.status(403).json({ message: 'Not authorized' });
-    }
+    await db.collection('conversations').doc(req.params.conversationId).update({ lastMessage: null, unreadCountClient: 0, unreadCountCompany: 0, updatedAt: new Date() });
 
-    // Delete all messages in the conversation
-    await Message.deleteMany({ conversation: req.params.conversationId });
-
-    // Reset conversation metadata
-    conversation.lastMessage = null;
-    conversation.unreadCountClient = 0;
-    conversation.unreadCountCompany = 0;
-    await conversation.save();
-
-    // Emit socket event
     const io = req.app.get('io');
     if (io) {
       const recipientRole = req.user.role === 'client' ? 'company' : 'client';
-      const recipientId = req.user.role === 'client' 
-        ? conversation.company.toString() 
-        : conversation.client.toString();
-      
-      io.to(`${recipientRole}-${recipientId}`).emit('chatCleared', {
-        conversationId: req.params.conversationId
-      });
+      const recipientId = req.user.role === 'client' ? conv.company : conv.client;
+      io.to(`${recipientRole}-${recipientId}`).emit('chatCleared', { conversationId: req.params.conversationId });
     }
 
     res.json({ message: 'Chat history cleared successfully' });
