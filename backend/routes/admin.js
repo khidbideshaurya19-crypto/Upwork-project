@@ -1,110 +1,165 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
-const { db } = require('../firebase');
 const { adminAuth, checkPermission } = require('../middleware/adminAuth');
+const User = require('../models/User');
+const Project = require('../models/Project');
+const Application = require('../models/Application');
+const Message = require('../models/Message');
 
-// GET /api/admin/dashboard
+// @route   GET /api/admin/dashboard
+// @desc    Get dashboard analytics
+// @access  Private (Admin)
 router.get('/dashboard', adminAuth, checkPermission('viewAnalytics'), async (req, res) => {
   try {
-    const [usersSnap, projectsSnap, appsSnap, msgsSnap] = await Promise.all([
-      db.collection('users').get(),
-      db.collection('projects').get(),
-      db.collection('applications').get(),
-      db.collection('messages').get()
-    ]);
+    const totalUsers = await User.countDocuments();
+    const totalClients = await User.countDocuments({ role: 'client' });
+    const totalCompanies = await User.countDocuments({ role: 'company' });
+    const totalProjects = await Project.countDocuments();
+    const activeProjects = await Project.countDocuments({ status: 'open' });
+    const totalApplications = await Application.countDocuments();
+    const totalMessages = await Message.countDocuments();
 
-    const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const projects = projectsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // Get recent users
+    const recentUsers = await User.find().sort({ createdAt: -1 }).limit(10).select('-password');
 
-    const recentUsers = users.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 10).map(u => { const c = {...u}; delete c.password; return c; });
-    const recentProjects = projects.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)).slice(0, 10);
+    // Get recent projects
+    const recentProjects = await Project.find().sort({ createdAt: -1 }).limit(10);
 
-    res.json({
-      users: { total: users.length, clients: users.filter(u => u.role === 'client').length, companies: users.filter(u => u.role === 'company').length },
-      projects: { total: projects.length, active: projects.filter(p => p.status === 'open').length },
-      applications: appsSnap.size,
-      messages: msgsSnap.size,
+    // Get platform stats
+    const stats = {
+      users: {
+        total: totalUsers,
+        clients: totalClients,
+        companies: totalCompanies
+      },
+      projects: {
+        total: totalProjects,
+        active: activeProjects
+      },
+      applications: totalApplications,
+      messages: totalMessages,
       recentUsers,
       recentProjects
-    });
+    };
+
+    res.json(stats);
   } catch (error) {
     console.error('Dashboard error:', error);
     res.status(500).json({ message: 'Server error fetching dashboard data' });
   }
 });
 
-// GET /api/admin/users
+// @route   GET /api/admin/users
+// @desc    Get all users with pagination and filters
+// @access  Private (Admin)
 router.get('/users', adminAuth, checkPermission('manageUsers'), async (req, res) => {
   try {
     const { page = 1, limit = 20, role, search } = req.query;
-    const snap = await db.collection('users').get();
-    let users = snap.docs.map(d => { const data = d.data(); delete data.password; return { id: d.id, ...data }; });
+    const skip = (page - 1) * limit;
 
-    if (role) users = users.filter(u => u.role === role);
+    let query = {};
+    if (role) query.role = role;
     if (search) {
-      const s = search.toLowerCase();
-      users = users.filter(u => u.name?.toLowerCase().includes(s) || u.email?.toLowerCase().includes(s));
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
     }
 
-    users.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    const total = users.length;
-    const start = (parseInt(page) - 1) * parseInt(limit);
-    const paged = users.slice(start, start + parseInt(limit));
+    const total = await User.countDocuments(query);
+    const users = await User.find(query)
+      .select('-password')
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
 
-    res.json({ users: paged, pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) } });
+    res.json({
+      users,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ message: 'Server error fetching users' });
   }
 });
 
-// GET /api/admin/users/:userId
+// @route   GET /api/admin/users/:userId
+// @desc    Get user details
+// @access  Private (Admin)
 router.get('/users/:userId', adminAuth, checkPermission('manageUsers'), async (req, res) => {
   try {
-    const userDoc = await db.collection('users').doc(req.params.userId).get();
-    if (!userDoc.exists) return res.status(404).json({ message: 'User not found' });
-    const userData = userDoc.data(); delete userData.password;
-    const user = { id: userDoc.id, ...userData };
+    const user = await User.findById(req.params.userId).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-    const [projSnap, appSnap] = await Promise.all([
-      db.collection('projects').where('client', '==', req.params.userId).get(),
-      db.collection('applications').where('company', '==', req.params.userId).get()
-    ]);
+    // Get user's projects and applications
+    const projects = await Project.find({ postedBy: user._id });
+    const applications = await Application.find({ appliedBy: user._id });
 
-    res.json({ user, stats: { projects: projSnap.size, applications: appSnap.size } });
+    res.json({
+      user,
+      stats: {
+        projects: projects.length,
+        applications: applications.length
+      }
+    });
   } catch (error) {
     console.error('Get user details error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// PUT /api/admin/users/:userId/status
+// @route   PUT /api/admin/users/:userId/status
+// @desc    Block/Unblock user
+// @access  Private (Admin)
 router.put('/users/:userId/status', adminAuth, checkPermission('manageUsers'), async (req, res) => {
   try {
     const { isActive, reason } = req.body;
-    const updates = { isActive, blockedReason: isActive ? '' : (reason || ''), blockedAt: isActive ? null : new Date(), updatedAt: new Date() };
-    await db.collection('users').doc(req.params.userId).update(updates);
 
-    const userDoc = await db.collection('users').doc(req.params.userId).get();
-    const userData = userDoc.data(); delete userData.password;
-    res.json({ message: isActive ? 'User unblocked' : 'User blocked', user: { id: userDoc.id, ...userData } });
+    const user = await User.findByIdAndUpdate(
+      req.params.userId,
+      {
+        isActive,
+        blockedReason: isActive ? '' : reason,
+        blockedAt: isActive ? null : new Date()
+      },
+      { new: true }
+    ).select('-password');
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({
+      message: isActive ? 'User unblocked' : 'User blocked',
+      user
+    });
   } catch (error) {
     console.error('Update user status error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// DELETE /api/admin/users/:userId
+// @route   DELETE /api/admin/users/:userId
+// @desc    Delete user
+// @access  Private (Admin)
 router.delete('/users/:userId', adminAuth, checkPermission('manageUsers'), async (req, res) => {
   try {
-    const userDoc = await db.collection('users').doc(req.params.userId).get();
-    if (!userDoc.exists) return res.status(404).json({ message: 'User not found' });
+    const user = await User.findByIdAndDelete(req.params.userId);
 
-    const projSnap = await db.collection('projects').where('client', '==', req.params.userId).get();
-    const batch = db.batch();
-    projSnap.docs.forEach(d => batch.delete(d.ref));
-    batch.delete(db.collection('users').doc(req.params.userId));
-    await batch.commit();
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Delete user's projects
+    await Project.deleteMany({ postedBy: user._id });
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
@@ -113,49 +168,84 @@ router.delete('/users/:userId', adminAuth, checkPermission('manageUsers'), async
   }
 });
 
-// GET /api/admin/projects
+// @route   GET /api/admin/projects
+// @desc    Get all projects
+// @access  Private (Admin)
 router.get('/projects', adminAuth, checkPermission('manageProjects'), async (req, res) => {
   try {
     const { page = 1, limit = 20, status, search } = req.query;
-    const snap = await db.collection('projects').get();
-    let projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const skip = (page - 1) * limit;
 
-    if (status) projects = projects.filter(p => p.status === status);
-    if (search) { const s = search.toLowerCase(); projects = projects.filter(p => p.title?.toLowerCase().includes(s)); }
+    let query = {};
+    if (status) query.status = status;
+    if (search) query.title = { $regex: search, $options: 'i' };
 
-    projects.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
-    const total = projects.length;
-    const start = (parseInt(page) - 1) * parseInt(limit);
-    const paged = projects.slice(start, start + parseInt(limit));
+    const total = await Project.countDocuments(query);
+    const projects = await Project.find(query)
+      .populate('postedBy', 'name email')
+      .skip(skip)
+      .limit(parseInt(limit))
+      .sort({ createdAt: -1 });
 
-    res.json({ projects: paged, pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) } });
+    res.json({
+      projects,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit)
+      }
+    });
   } catch (error) {
     console.error('Get projects error:', error);
     res.status(500).json({ message: 'Server error fetching projects' });
   }
 });
 
-// PUT /api/admin/projects/:projectId/status
+// @route   PUT /api/admin/projects/:projectId/status
+// @desc    Update project status (approve/reject/remove)
+// @access  Private (Admin)
 router.put('/projects/:projectId/status', adminAuth, checkPermission('manageProjects'), async (req, res) => {
   try {
     const { status, reason } = req.body;
-    await db.collection('projects').doc(req.params.projectId).update({ status, adminNotes: reason || '', updatedAt: new Date() });
-    const doc = await db.collection('projects').doc(req.params.projectId).get();
-    res.json({ message: `Project status updated to ${status}`, project: { id: doc.id, ...doc.data() } });
+
+    const project = await Project.findByIdAndUpdate(
+      req.params.projectId,
+      {
+        status,
+        adminNotes: reason
+      },
+      { new: true }
+    ).populate('postedBy', 'name email');
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    res.json({
+      message: `Project status updated to ${status}`,
+      project
+    });
   } catch (error) {
     console.error('Update project status error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// DELETE /api/admin/projects/:projectId
+// @route   DELETE /api/admin/projects/:projectId
+// @desc    Delete project
+// @access  Private (Admin)
 router.delete('/projects/:projectId', adminAuth, checkPermission('manageProjects'), async (req, res) => {
   try {
-    const appsSnap = await db.collection('applications').where('project', '==', req.params.projectId).get();
-    const batch = db.batch();
-    appsSnap.docs.forEach(d => batch.delete(d.ref));
-    batch.delete(db.collection('projects').doc(req.params.projectId));
-    await batch.commit();
+    const project = await Project.findByIdAndDelete(req.params.projectId);
+
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Delete related applications
+    await Application.deleteMany({ projectId: project._id });
+
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Delete project error:', error);
@@ -163,34 +253,51 @@ router.delete('/projects/:projectId', adminAuth, checkPermission('manageProjects
   }
 });
 
-// GET /api/admin/reports
+// @route   GET /api/admin/reports
+// @desc    Get platform reports and statistics
+// @access  Private (Admin)
 router.get('/reports', adminAuth, checkPermission('viewAnalytics'), async (req, res) => {
   try {
-    const [usersSnap, projectsSnap] = await Promise.all([
-      db.collection('users').get(),
-      db.collection('projects').get()
+    // User growth
+    const usersPerDay = await User.aggregate([
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 30 }
     ]);
 
-    const users = usersSnap.docs.map(d => d.data());
-    const projects = projectsSnap.docs.map(d => d.data());
+    // Projects per day
+    const projectsPerDay = await Project.aggregate([
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: '%Y-%m-%d', date: '$createdAt' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 30 }
+    ]);
 
-    const dateKey = (ts) => {
-      if (!ts) return 'unknown';
-      const d = ts.toDate ? ts.toDate() : new Date(ts);
-      return d.toISOString().split('T')[0];
-    };
+    // Top categories
+    const topCategories = await Project.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
 
-    const countByDate = (arr) => {
-      const map = {};
-      arr.forEach(item => { const k = dateKey(item.createdAt); map[k] = (map[k] || 0) + 1; });
-      return Object.entries(map).sort((a,b) => a[0].localeCompare(b[0])).slice(-30).map(([_id, count]) => ({ _id, count }));
-    };
-
-    const categoryMap = {};
-    projects.forEach(p => { if (p.category) categoryMap[p.category] = (categoryMap[p.category] || 0) + 1; });
-    const topCategories = Object.entries(categoryMap).sort((a,b) => b[1]-a[1]).slice(0,10).map(([_id, count]) => ({ _id, count }));
-
-    res.json({ usersPerDay: countByDate(users), projectsPerDay: countByDate(projects), topCategories });
+    res.json({
+      usersPerDay,
+      projectsPerDay,
+      topCategories
+    });
   } catch (error) {
     console.error('Get reports error:', error);
     res.status(500).json({ message: 'Server error fetching reports' });

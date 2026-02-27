@@ -1,9 +1,10 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
-const { db } = require('../firebase');
+const Project = require('../models/Project');
 const { auth, isClient } = require('../middleware/auth');
 
+// Validation middleware
 const validateProject = [
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('description').trim().notEmpty().withMessage('Description is required'),
@@ -12,81 +13,84 @@ const validateProject = [
   body('budgetType').isIn(['fixed', 'hourly']).withMessage('Budget type must be fixed or hourly')
 ];
 
-// Helper: get user data (no password)
-const getUser = async (id) => {
-  if (!id) return null;
-  const doc = await db.collection('users').doc(id).get();
-  if (!doc.exists) return null;
-  const data = doc.data();
-  delete data.password;
-  return { id: doc.id, ...data };
-};
-
-// POST /api/projects
+// @route   POST /api/projects
+// @desc    Create a new project (Client only)
+// @access  Private
 router.post('/', [auth, isClient, validateProject], async (req, res) => {
   try {
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
 
     const { title, description, category, budget, budgetType, duration, skills } = req.body;
-    const now = new Date();
 
-    const projectData = {
-      title, description, category,
-      budget: Number(budget), budgetType,
-      duration: duration || '',
+    const project = new Project({
+      title,
+      description,
+      category,
+      budget,
+      budgetType,
+      duration,
       skills: Array.isArray(skills) ? skills : [],
-      status: 'open',
-      client: req.userId,
-      applicantsCount: 0,
-      assignedTo: null,
-      createdAt: now,
-      updatedAt: now
-    };
+      client: req.userId
+    });
 
-    const docRef = await db.collection('projects').add(projectData);
-    const client = await getUser(req.userId);
-    const project = { id: docRef.id, ...projectData, client };
+    await project.save();
+    await project.populate('client', 'name email location verified rating');
 
+    // Emit socket event for real-time notification
     const io = req.app.get('io');
-    if (io) io.emit('newProject', project);
+    if (io) {
+      io.emit('newProject', project);
+    }
 
-    res.status(201).json({ message: 'Project created successfully', project });
+    res.status(201).json({
+      message: 'Project created successfully',
+      project
+    });
   } catch (error) {
     console.error('Create project error:', error);
     res.status(500).json({ message: 'Server error while creating project' });
   }
 });
 
-// GET /api/projects
+// @route   GET /api/projects
+// @desc    Get all projects (with filters)
+// @access  Public/Private
 router.get('/', async (req, res) => {
   try {
     const { status, category, minBudget, maxBudget, search } = req.query;
+    
+    let query = {};
 
-    let query = db.collection('projects');
-    query = query.where('status', '==', status || 'open');
-    if (category) query = query.where('category', '==', category);
-
-    const snap = await query.orderBy('createdAt', 'desc').limit(50).get();
-    let projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Client-side filters (Firestore limitations)
-    if (minBudget) projects = projects.filter(p => p.budget >= Number(minBudget));
-    if (maxBudget) projects = projects.filter(p => p.budget <= Number(maxBudget));
-    if (search) {
-      const s = search.toLowerCase();
-      projects = projects.filter(p =>
-        p.title?.toLowerCase().includes(s) || p.description?.toLowerCase().includes(s)
-      );
+    if (status) {
+      query.status = status;
+    } else {
+      query.status = 'open'; // Default to open projects
     }
 
-    // Populate client data
-    const clientIds = [...new Set(projects.map(p => p.client).filter(Boolean))];
-    const clientMap = {};
-    await Promise.all(clientIds.map(async (id) => {
-      clientMap[id] = await getUser(id);
-    }));
-    projects = projects.map(p => ({ ...p, client: clientMap[p.client] || p.client }));
+    if (category) {
+      query.category = category;
+    }
+
+    if (minBudget || maxBudget) {
+      query.budget = {};
+      if (minBudget) query.budget.$gte = Number(minBudget);
+      if (maxBudget) query.budget.$lte = Number(maxBudget);
+    }
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    const projects = await Project.find(query)
+      .populate('client', 'name email location verified rating')
+      .sort({ createdAt: -1 })
+      .limit(50);
 
     res.json({ projects, count: projects.length });
   } catch (error) {
@@ -95,20 +99,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/projects/my-projects
+// @route   GET /api/projects/my-projects
+// @desc    Get projects posted by the logged-in client
+// @access  Private (Client only)
 router.get('/my-projects', [auth, isClient], async (req, res) => {
   try {
-    const snap = await db.collection('projects')
-      .where('client', '==', req.userId)
-      .orderBy('createdAt', 'desc')
-      .get();
-
-    let projects = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    // Populate assignedTo
-    await Promise.all(projects.map(async (p, i) => {
-      if (p.assignedTo) projects[i].assignedTo = await getUser(p.assignedTo);
-    }));
+    const projects = await Project.find({ client: req.userId })
+      .populate('assignedTo', 'name companyName email rating')
+      .sort({ createdAt: -1 });
 
     res.json({ projects, count: projects.length });
   } catch (error) {
@@ -117,15 +115,18 @@ router.get('/my-projects', [auth, isClient], async (req, res) => {
   }
 });
 
-// GET /api/projects/:id
+// @route   GET /api/projects/:id
+// @desc    Get single project by ID
+// @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const doc = await db.collection('projects').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ message: 'Project not found' });
+    const project = await Project.findById(req.params.id)
+      .populate('client', 'name email location verified rating jobsPosted')
+      .populate('assignedTo', 'name companyName email rating');
 
-    const project = { id: doc.id, ...doc.data() };
-    project.client = await getUser(project.client);
-    if (project.assignedTo) project.assignedTo = await getUser(project.assignedTo);
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
 
     res.json({ project });
   } catch (error) {
@@ -134,47 +135,64 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// PUT /api/projects/:id
+// @route   PUT /api/projects/:id
+// @desc    Update a project (Client only - own projects)
+// @access  Private
 router.put('/:id', [auth, isClient], async (req, res) => {
   try {
-    const doc = await db.collection('projects').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ message: 'Project not found' });
+    const project = await Project.findById(req.params.id);
 
-    const project = doc.data();
-    if (project.client !== req.userId) return res.status(403).json({ message: 'Not authorized to update this project' });
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
+
+    // Check if the user owns this project
+    if (project.client.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to update this project' });
+    }
 
     const { title, description, category, budget, budgetType, duration, skills, status } = req.body;
-    const updates = { updatedAt: new Date() };
 
-    if (title) updates.title = title;
-    if (description) updates.description = description;
-    if (category) updates.category = category;
-    if (budget) updates.budget = Number(budget);
-    if (budgetType) updates.budgetType = budgetType;
-    if (duration) updates.duration = duration;
-    if (skills) updates.skills = skills;
-    if (status) updates.status = status;
+    if (title) project.title = title;
+    if (description) project.description = description;
+    if (category) project.category = category;
+    if (budget) project.budget = budget;
+    if (budgetType) project.budgetType = budgetType;
+    if (duration) project.duration = duration;
+    if (skills) project.skills = skills;
+    if (status) project.status = status;
 
-    await db.collection('projects').doc(req.params.id).update(updates);
-    const updated = { id: req.params.id, ...project, ...updates };
-    updated.client = await getUser(updated.client);
+    await project.save();
+    await project.populate('client', 'name email location verified rating');
 
-    res.json({ message: 'Project updated successfully', project: updated });
+    res.json({
+      message: 'Project updated successfully',
+      project
+    });
   } catch (error) {
     console.error('Update project error:', error);
     res.status(500).json({ message: 'Server error while updating project' });
   }
 });
 
-// DELETE /api/projects/:id
+// @route   DELETE /api/projects/:id
+// @desc    Delete a project (Client only - own projects)
+// @access  Private
 router.delete('/:id', [auth, isClient], async (req, res) => {
   try {
-    const doc = await db.collection('projects').doc(req.params.id).get();
-    if (!doc.exists) return res.status(404).json({ message: 'Project not found' });
+    const project = await Project.findById(req.params.id);
 
-    if (doc.data().client !== req.userId) return res.status(403).json({ message: 'Not authorized to delete this project' });
+    if (!project) {
+      return res.status(404).json({ message: 'Project not found' });
+    }
 
-    await db.collection('projects').doc(req.params.id).delete();
+    // Check if the user owns this project
+    if (project.client.toString() !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized to delete this project' });
+    }
+
+    await project.deleteOne();
+
     res.json({ message: 'Project deleted successfully' });
   } catch (error) {
     console.error('Delete project error:', error);

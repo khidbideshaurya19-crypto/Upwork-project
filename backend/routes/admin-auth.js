@@ -1,31 +1,49 @@
-﻿const express = require('express');
+const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const { db } = require('../firebase');
+const Admin = require('../models/Admin');
 const { adminAuth } = require('../middleware/adminAuth');
 
-// POST /api/admin/auth/login
+// @route   POST /api/admin/login
+// @desc    Admin login
+// @access  Public
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
 
-    const snap = await db.collection('admins').where('email', '==', email.toLowerCase()).limit(1).get();
-    if (snap.empty) return res.status(401).json({ message: 'Invalid credentials' });
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password required' });
+    }
 
-    const adminDoc = snap.docs[0];
-    const admin = { id: adminDoc.id, ...adminDoc.data() };
+    // Find admin by email
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
-    if (!admin.isActive) return res.status(403).json({ message: 'Admin account is inactive' });
+    // Check if admin is active
+    if (!admin.isActive) {
+      return res.status(403).json({ message: 'Admin account is inactive' });
+    }
 
-    const isPasswordValid = await bcrypt.compare(password, admin.password);
-    if (!isPasswordValid) return res.status(401).json({ message: 'Invalid credentials' });
+    // Verify password
+    const isPasswordValid = await admin.comparePassword(password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
-    await db.collection('admins').doc(adminDoc.id).update({ lastLogin: new Date() });
+    // Update last login
+    admin.lastLogin = new Date();
+    await admin.save();
 
+    // Create JWT token
     const token = jwt.sign(
-      { adminId: admin.id, email: admin.email, role: admin.role },
+      {
+        adminId: admin._id,
+        email: admin.email,
+        role: admin.role
+      },
       process.env.JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -34,7 +52,7 @@ router.post('/login', async (req, res) => {
       message: 'Login successful',
       token,
       admin: {
-        id: admin.id,
+        id: admin._id,
         name: admin.name,
         email: admin.email,
         role: admin.role,
@@ -47,23 +65,33 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// GET /api/admin/auth/profile
+// @route   GET /api/admin/profile
+// @desc    Get admin profile
+// @access  Private (Admin)
 router.get('/profile', adminAuth, async (req, res) => {
   try {
-    const adminDoc = await db.collection('admins').doc(req.adminId).get();
-    if (!adminDoc.exists) return res.status(404).json({ message: 'Admin not found' });
-    const admin = adminDoc.data();
-    delete admin.password;
-    res.json({ admin: { id: adminDoc.id, ...admin } });
+    const admin = await Admin.findById(req.adminId).select('-password');
+    
+    if (!admin) {
+      return res.status(404).json({ message: 'Admin not found' });
+    }
+
+    res.json({ admin });
   } catch (error) {
     console.error('Get admin profile error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-// POST /api/admin/auth/logout
+// @route   POST /api/admin/logout
+// @desc    Admin logout
+// @access  Private (Admin)
 router.post('/logout', adminAuth, async (req, res) => {
-  res.json({ message: 'Logout successful' });
+  try {
+    res.json({ message: 'Logout successful' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 module.exports = router;

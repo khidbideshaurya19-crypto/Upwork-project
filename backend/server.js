@@ -1,6 +1,7 @@
 const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
+const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
@@ -81,23 +82,21 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Initialize Firebase and start server
-const { db } = require('./firebase');
+// Database connection
 const PORT = process.env.PORT || 5000;
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/upwork';
 
-// Warm up Firestore connection
-db.collection('_health').limit(1).get()
-  .then(() => {
-    console.log('✅ Connected to Firebase Firestore');
-  })
-  .catch((err) => {
-    console.warn('⚠️  Firestore warm-up warning (non-fatal):', err.message);
+mongoose.connect(MONGODB_URI)
+.then(() => {
+  console.log('✅ Connected to MongoDB');
+  server.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`📡 Socket.IO ready for real-time communication`);
   });
-
-server.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-  console.log(`📡 Socket.IO ready for real-time communication`);
-  console.log(`🔥 Using Firebase Firestore as database`);
+})
+.catch((err) => {
+  console.error('❌ MongoDB connection error:', err);
+  process.exit(1);
 });
 
 // Handle unhandled promise rejections
