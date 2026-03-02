@@ -1,12 +1,60 @@
-const mongoose = require('mongoose');
+require('./firebase');
+const { db } = require('./firebase');
 require('dotenv').config();
 
+/**
+ * Migration script: clean up duplicate conversations in Firestore
+ * (Firestore has no native unique indexes — we enforce uniqueness in application logic)
+ */
 const migrateConversations = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/freelance-platform');
-    console.log('Connected to MongoDB');
+    console.log('🔥 Connected to Firebase / Firestore');
 
-    const Conversation = mongoose.connection.collection('conversations');
+    const snap = await db.collection('conversations').get();
+    const conversations = snap.docs.map(doc => ({ _id: doc.id, ...doc.data() }));
+    console.log(`Found ${conversations.length} conversations`);
+
+    // Remove duplicate conversations (keep the most recent for each client-company pair)
+    const seen = new Map();
+    const toDelete = [];
+
+    conversations.forEach(conv => {
+      const key = `${conv.client}_${conv.company}`;
+      if (seen.has(key)) {
+        const existing = seen.get(key);
+        const existingTime = existing.lastMessageTime?.toDate ? existing.lastMessageTime.toDate() : new Date(existing.lastMessageTime || 0);
+        const convTime = conv.lastMessageTime?.toDate ? conv.lastMessageTime.toDate() : new Date(conv.lastMessageTime || 0);
+        if (convTime > existingTime) {
+          toDelete.push(existing._id);
+          seen.set(key, conv);
+        } else {
+          toDelete.push(conv._id);
+        }
+      } else {
+        seen.set(key, conv);
+      }
+    });
+
+    if (toDelete.length > 0) {
+      const batch = db.batch();
+      toDelete.forEach(id => batch.delete(db.collection('conversations').doc(id)));
+      await batch.commit();
+      console.log(`✓ Removed ${toDelete.length} duplicate conversations`);
+    } else {
+      console.log('✓ No duplicate conversations found');
+    }
+
+    console.log('\n✅ Migration completed successfully!');
+    console.log('Restart your backend server now.');
+    process.exit(0);
+  } catch (error) {
+    console.error('❌ Migration error:', error);
+    process.exit(1);
+  }
+};
+
+migrateConversations();
+
 
     // Drop the old index
     try {

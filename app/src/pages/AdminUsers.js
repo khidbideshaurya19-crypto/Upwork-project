@@ -13,6 +13,12 @@ const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [blockReason, setBlockReason] = useState('');
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+  };
+
   useEffect(() => {
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,7 +134,7 @@ const AdminUsers = () => {
                         {user.isActive ? 'Active' : 'Blocked'}
                       </span>
                     </td>
-                    <td className="adm-cell-date">{new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td className="adm-cell-date">{parseDate(user.createdAt)}</td>
                     <td>
                       <div className="adm-btn-group">
                         {user.isActive ? (

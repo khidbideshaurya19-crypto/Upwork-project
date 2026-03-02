@@ -12,6 +12,12 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [collapsedSections, setCollapsedSections] = useState({});
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   useEffect(() => {
     fetchMyProjects();
   }, []);
@@ -48,7 +54,7 @@ const Dashboard = () => {
   const renderProjectCard = (project) => (
     <div key={project._id} className="upw-job-card" onClick={() => navigate(`/project/${project._id}`)}>
       <div className="upw-job-top-row">
-        <span className="upw-posted">Posted {new Date(project.createdAt).toLocaleDateString()}</span>
+        <span className="upw-posted">Posted {parseDate(project.createdAt)?.toLocaleDateString() || 'recently'}</span>
         <span className="status-badge" style={{ backgroundColor: getStatusColor(project.status) }}>
           {project.status}
         </span>

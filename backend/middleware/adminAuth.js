@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+﻿const jwt = require('jsonwebtoken');
 
 const adminAuth = (req, res, next) => {
   try {
@@ -33,7 +33,7 @@ const checkPermission = (permissionKey) => {
       }
 
       // Check specific permission
-      if (!admin.permissions[permissionKey]) {
+      if (!admin.permissions || !admin.permissions[permissionKey]) {
         return res.status(403).json({ message: 'Insufficient permissions' });
       }
 

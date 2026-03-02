@@ -4,14 +4,15 @@ const User = require('../models/User');
 const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
-    
+
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
-    
+    // findById now returns a Firestore-backed User instance
+    const user = await User.findById(decoded.userId);
+
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
     }
@@ -34,6 +35,13 @@ const isClient = (req, res, next) => {
 const isCompany = (req, res, next) => {
   if (req.user.role !== 'company') {
     return res.status(403).json({ message: 'Access denied. Company only.' });
+  }
+  // Block companies that haven't been approved by admin
+  if (req.user.verificationStatus && req.user.verificationStatus !== 'approved') {
+    return res.status(403).json({
+      message: 'Your company account is pending admin approval.',
+      verificationStatus: req.user.verificationStatus
+    });
   }
   next();
 };

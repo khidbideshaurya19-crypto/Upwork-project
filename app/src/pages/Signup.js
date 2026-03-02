@@ -15,7 +15,9 @@ const Signup = () => {
     confirmPassword: '',
     location: '',
     companyName: '',
-    description: ''
+    description: '',
+    websiteUrl: '',
+    linkedinUrl: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -54,12 +56,15 @@ const Signup = () => {
           formData.password,
           formData.companyName,
           formData.description,
-          formData.location
+          formData.location,
+          formData.websiteUrl,
+          formData.linkedinUrl
         );
+        navigate('/pending-approval');
       } else {
         await signup(formData.name, formData.email, formData.password, formData.location);
+        navigate('/dashboard');
       }
-      navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Signup failed. Please try again.');
     } finally {
@@ -152,6 +157,36 @@ const Signup = () => {
                 rows="3"
                 placeholder="Brief description of your company"
               ></textarea>
+            </div>
+          )}
+
+          {selectedRole === 'company' && (
+            <div className="form-group">
+              <label htmlFor="websiteUrl">Company Website URL</label>
+              <input
+                type="url"
+                id="websiteUrl"
+                name="websiteUrl"
+                value={formData.websiteUrl}
+                onChange={handleChange}
+                placeholder="https://yourcompany.com"
+              />
+              <small style={{ color: '#6b7280', fontSize: '12px' }}>Helps verify your company identity</small>
+            </div>
+          )}
+
+          {selectedRole === 'company' && (
+            <div className="form-group">
+              <label htmlFor="linkedinUrl">LinkedIn Company Page</label>
+              <input
+                type="url"
+                id="linkedinUrl"
+                name="linkedinUrl"
+                value={formData.linkedinUrl}
+                onChange={handleChange}
+                placeholder="https://linkedin.com/company/yourcompany"
+              />
+              <small style={{ color: '#6b7280', fontSize: '12px' }}>Helps verify your company presence</small>
             </div>
           )}
 

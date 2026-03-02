@@ -14,6 +14,12 @@ const ProjectDetails = () => {
   const [loading, setLoading] = useState(true);
   const [selectedApplication, setSelectedApplication] = useState(null);
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   useEffect(() => {
     fetchProjectDetails();
     fetchApplications();
@@ -257,7 +263,7 @@ const ProjectDetails = () => {
 
                   <div className="application-footer">
                     <span className="application-date">
-                      Applied {new Date(app.createdAt).toLocaleDateString()}
+                      Applied {parseDate(app.createdAt)?.toLocaleDateString() || 'recently'}
                     </span>
                     {app.status === 'pending' && (
                       <div className="application-actions">

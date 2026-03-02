@@ -34,7 +34,13 @@ const Login = () => {
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Login failed. Please try again.');
+      const resData = err.response?.data;
+      // If company is pending/rejected, show verification status message
+      if (resData?.verificationStatus === 'pending' || resData?.verificationStatus === 'rejected') {
+        setError(resData.message);
+      } else {
+        setError(resData?.message || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

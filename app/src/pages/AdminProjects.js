@@ -14,6 +14,12 @@ const AdminProjects = () => {
   const [newStatus, setNewStatus] = useState('');
   const [adminNotes, setAdminNotes] = useState('');
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+  };
+
   useEffect(() => {
     fetchProjects();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -129,7 +135,7 @@ const AdminProjects = () => {
                       </span>
                     </td>
                     <td className="adm-cell-budget">${project.budget}</td>
-                    <td className="adm-cell-date">{new Date(project.deadline).toLocaleDateString()}</td>
+                    <td className="adm-cell-date">{parseDate(project.deadline)}</td>
                     <td>
                       <div className="adm-btn-group">
                         <button className="adm-action-btn adm-action-btn--primary" onClick={() => { setSelectedProject(project._id); setNewStatus(project.status); }}>Edit</button>

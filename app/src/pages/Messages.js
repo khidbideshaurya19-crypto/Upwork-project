@@ -281,7 +281,15 @@ const Messages = () => {
   };
 
   const formatTime = (date) => {
-    const messageDate = new Date(date);
+    const parseDate = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr);
+      return isNaN(d.getTime()) ? null : d;
+    };
+
+    const messageDate = parseDate(date);
+    if (!messageDate) return 'Just now';
+
     const now = new Date();
     const diffTime = Math.abs(now - messageDate);
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));

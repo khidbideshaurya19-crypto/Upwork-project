@@ -7,6 +7,12 @@ const AdminDashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString();
+  };
+
   useEffect(() => {
     fetchDashboard();
   }, []);
@@ -96,6 +102,15 @@ const AdminDashboard = () => {
               <span className="adm-stat-value">{stats?.messages || 0}</span>
             </div>
           </div>
+          {stats?.pendingCompanies > 0 && (
+            <div className="adm-stat-card" style={{ border: '2px solid #f59e0b', background: '#fffbeb' }}>
+              <span className="adm-stat-icon">⏳</span>
+              <div className="adm-stat-info">
+                <span className="adm-stat-label">Pending Verification</span>
+                <span className="adm-stat-value" style={{ color: '#d97706' }}>{stats.pendingCompanies}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="adm-tables-layout">
@@ -122,7 +137,7 @@ const AdminDashboard = () => {
                         <td>
                           <span className={`adm-pill adm-pill--${user.role}`}>{user.role}</span>
                         </td>
-                        <td className="adm-cell-date">{new Date(user.createdAt).toLocaleDateString()}</td>
+                        <td className="adm-cell-date">{parseDate(user.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -158,7 +173,7 @@ const AdminDashboard = () => {
                           </span>
                         </td>
                         <td className="adm-cell-budget">${project.budget}</td>
-                        <td className="adm-cell-date">{new Date(project.createdAt).toLocaleDateString()}</td>
+                        <td className="adm-cell-date">{parseDate(project.createdAt)}</td>
                       </tr>
                     ))}
                   </tbody>

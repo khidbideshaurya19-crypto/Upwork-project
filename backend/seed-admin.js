@@ -1,21 +1,20 @@
-const mongoose = require('mongoose');
+require('./firebase'); // Initialize Firestore
 const Admin = require('./models/Admin');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const seedAdmin = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/upwork');
-    console.log('✅ Connected to MongoDB');
+    console.log('🔥 Connecting to Firebase / Firestore...');
 
     // Check if admin already exists
     const existingAdmin = await Admin.findOne({ email: 'admin@upwork.com' });
-    
+
     if (existingAdmin) {
       console.log('ℹ️  Admin user already exists');
       console.log('\n📋 Admin Credentials:');
       console.log('   Email: admin@upwork.com');
       console.log('   Password: Admin@123456');
-      await mongoose.connection.close();
       return;
     }
 
@@ -25,6 +24,7 @@ const seedAdmin = async () => {
       email: 'admin@upwork.com',
       password: 'Admin@123456',
       role: 'super_admin',
+      isActive: true,
       permissions: {
         manageUsers: true,
         manageProjects: true,
@@ -48,6 +48,7 @@ const seedAdmin = async () => {
       email: 'moderator@upwork.com',
       password: 'Moderator@123',
       role: 'moderator',
+      isActive: true,
       permissions: {
         manageUsers: true,
         manageProjects: true,
@@ -63,7 +64,6 @@ const seedAdmin = async () => {
     console.log('   Email: moderator@upwork.com');
     console.log('   Password: Moderator@123');
 
-    await mongoose.connection.close();
     console.log('\n✅ Database seeding completed!');
     process.exit(0);
   } catch (error) {

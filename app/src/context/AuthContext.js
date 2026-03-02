@@ -99,7 +99,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Signup for company
-  const signupCompany = async (name, email, password, companyName, description, location) => {
+  const signupCompany = async (name, email, password, companyName, description, location, websiteUrl, linkedinUrl) => {
     const response = await api.post('/auth/signup', {
       name,
       email,
@@ -107,7 +107,9 @@ export const AuthProvider = ({ children }) => {
       role: 'company',
       companyName,
       description,
-      location
+      location,
+      websiteUrl,
+      linkedinUrl
     });
     
     const { token, user } = response.data;

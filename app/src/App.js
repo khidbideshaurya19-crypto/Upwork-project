@@ -21,12 +21,18 @@ import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
 import AdminProjects from './pages/AdminProjects';
 import AdminReports from './pages/AdminReports';
+import AdminCompanyVerification from './pages/AdminCompanyVerification';
+import PendingApproval from './pages/PendingApproval';
 import Navbar from './components/Navbar';
 import './App.css';
 
 // Smart Dashboard that renders based on role
 const SmartDashboard = () => {
   const { user } = useAuth();
+  // Redirect unapproved companies to pending page
+  if (user?.role === 'company' && user?.verificationStatus && user.verificationStatus !== 'approved') {
+    return <Navigate to="/pending-approval" />;
+  }
   if (user?.role === 'company') return <CompanyDashboard />;
   return <Dashboard />;
 };
@@ -58,6 +64,7 @@ function App() {
           <Route path="/get-started" element={<RoleSelection />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
+          <Route path="/pending-approval" element={<PendingApproval />} />
           <Route 
             path="/dashboard" 
             element={
@@ -173,6 +180,15 @@ function App() {
               <AdminRoute>
                 <Navbar />
                 <AdminReports />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/company-verification" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminCompanyVerification />
               </AdminRoute>
             } 
           />

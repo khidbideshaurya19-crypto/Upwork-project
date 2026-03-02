@@ -112,6 +112,9 @@ const Navbar = () => {
               <button className="upw-nav-link" onClick={() => navigate('/admin/reports')}>
                 Reports
               </button>
+              <button className="upw-nav-link" onClick={() => navigate('/admin/company-verification')}>
+                Verification
+              </button>
             </div>
 
             <button className="upw-icon-btn" title="Notifications">

@@ -15,6 +15,12 @@ const ApplicationStatus = () => {
   const isCompany = user?.role === 'company';
   const isClient = user?.role === 'client';
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   useEffect(() => {
     fetchApplications();
   }, [user]);
@@ -185,7 +191,7 @@ const ApplicationStatus = () => {
                           {app.project.title}
                         </h3>
                         <p style={{ color: '#6b7280', margin: 0, fontSize: '14px' }}>
-                          {isCompany ? 'Submitted' : 'From'}: {new Date(app.createdAt).toLocaleDateString()}
+                          {isCompany ? 'Submitted' : 'From'}: {parseDate(app.createdAt)?.toLocaleDateString() || 'recently'}
                         </p>
                       </div>
                       <span className="status-badge" style={{ backgroundColor: getStatusColor(app.status), color: 'white', padding: '6px 12px', borderRadius: '4px', fontSize: '12px', fontWeight: '600', textTransform: 'capitalize' }}>

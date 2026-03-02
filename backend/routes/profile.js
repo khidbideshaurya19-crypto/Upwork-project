@@ -4,18 +4,25 @@ const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
+// Helper – public safe user object (no password, no internals)
+function publicUser(u) {
+  if (!u) return null;
+  const { password, _isNew, _passwordChanged, ...safe } = u;
+  return safe;
+}
+
 // @route   GET /api/profile
 // @desc    Get current user profile
 // @access  Private
 router.get('/', auth, async (req, res) => {
   try {
-    const user = await User.findById(req.userId).select('-password');
-    
+    const user = await User.findById(req.userId);
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ user });
+    res.json({ user: publicUser(user) });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ message: 'Server error while fetching profile' });
@@ -27,13 +34,13 @@ router.get('/', auth, async (req, res) => {
 // @access  Public
 router.get('/:userId', async (req, res) => {
   try {
-    const user = await User.findById(req.params.userId).select('-password');
-    
+    const user = await User.findById(req.params.userId);
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    res.json({ user });
+    res.json({ user: publicUser(user) });
   } catch (error) {
     console.error('Get user profile error:', error);
     res.status(500).json({ message: 'Server error while fetching user profile' });
@@ -105,8 +112,8 @@ router.put('/', [auth, upload.single('profileImage')], async (req, res) => {
 
     await user.save();
 
-    const updatedUser = await User.findById(req.userId).select('-password');
-    res.json({ message: 'Profile updated successfully', user: updatedUser });
+    const updatedUser = await User.findById(req.userId);
+    res.json({ message: 'Profile updated successfully', user: publicUser(updatedUser) });
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ message: 'Server error while updating profile' });
@@ -140,7 +147,8 @@ router.put('/password', auth, async (req, res) => {
       return res.status(400).json({ message: 'Current password is incorrect' });
     }
 
-    // Update password
+    // Update password — mark as changed so save() re-hashes it
+    user._passwordChanged = true;
     user.password = newPassword;
     await user.save();
 

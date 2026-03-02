@@ -8,6 +8,12 @@ const Payments = () => {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('all');
 
+  const parseDate = (dateStr) => {
+    if (!dateStr) return null;
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
   useEffect(() => {
     fetchApplications();
   }, []);
@@ -215,7 +221,7 @@ const Payments = () => {
                       color: '#0f172a',
                       margin: 0
                     }}>
-                      {new Date(app.createdAt).toLocaleDateString()}
+                      {parseDate(app.createdAt)?.toLocaleDateString() || 'recently'}
                     </p>
                   </div>
                 </div>
