@@ -5,6 +5,8 @@ const Application = require('../models/Application');
 const Project = require('../models/Project');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
+const Contract = require('../models/Contract');
+const ProjectUpdate = require('../models/ProjectUpdate');
 const { auth, isCompany, isClient } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
@@ -213,6 +215,32 @@ router.put('/:id/status', [auth, isClient], async (req, res) => {
           await oa.save();
         }
       }
+
+      // ── Create Contract ──
+      const contract = new Contract({
+        projectId: application.project,
+        applicationId: application._id,
+        clientId: project.client,
+        companyId: application.company,
+        agreedBudget: application.quotation || project.budget,
+        budgetType: project.budgetType || 'fixed',
+        timeline: application.estimatedDuration || '',
+        status: 'active', // active → completed
+        startDate: new Date()
+      });
+      await contract.save();
+
+      // Post system update
+      const sysUpdate = new ProjectUpdate({
+        contractId: contract._id,
+        projectId: application.project,
+        authorId: req.userId,
+        authorName: 'System',
+        authorRole: 'system',
+        message: 'Contract created — project work can now begin!',
+        type: 'system'
+      });
+      await sysUpdate.save();
 
       // Find or create conversation
       let conversation = await Conversation.findOne({ project: application.project, company: application.company });

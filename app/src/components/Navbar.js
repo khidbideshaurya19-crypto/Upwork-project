@@ -187,6 +187,11 @@ const Navbar = () => {
                 </button>
               </>
             )}
+            {(isClient || isCompany) && (
+              <button className="upw-nav-link" onClick={() => navigate('/contracts')}>
+                My Contracts
+              </button>
+            )}
             <button className="upw-nav-link" onClick={() => navigate('/application-status')}>
               Application Status
             </button>

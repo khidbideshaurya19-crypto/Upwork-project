@@ -197,8 +197,8 @@ const ProjectDetails = () => {
                       <div>
                         <h3>{app.company.companyName || app.company.name}</h3>
                         <div className="company-meta">
-                          <span>⭐ {app.company.rating.toFixed(1)}</span>
-                          <span>• {app.company.jobsCompleted} jobs completed</span>
+                          <span>⭐ {(app.company.rating || 0).toFixed(1)}</span>
+                          <span>• {app.company.jobsCompleted || 0} jobs completed</span>
                           {app.company.verified && <span>• ✓ Verified</span>}
                           {app.company.location && <span>• 📍 {app.company.location}</span>}
                         </div>

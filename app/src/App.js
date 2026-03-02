@@ -23,6 +23,8 @@ import AdminProjects from './pages/AdminProjects';
 import AdminReports from './pages/AdminReports';
 import AdminCompanyVerification from './pages/AdminCompanyVerification';
 import PendingApproval from './pages/PendingApproval';
+import ProjectWorkspace from './pages/ProjectWorkspace';
+import MyContracts from './pages/MyContracts';
 import Navbar from './components/Navbar';
 import './App.css';
 
@@ -86,6 +88,22 @@ function App() {
             element={
               <PrivateRoute>
                 <ProjectDetails />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/workspace/:contractId" 
+            element={
+              <PrivateRoute>
+                <ProjectWorkspace />
+              </PrivateRoute>
+            } 
+          />
+          <Route 
+            path="/contracts" 
+            element={
+              <PrivateRoute>
+                <MyContracts />
               </PrivateRoute>
             } 
           />
