@@ -1,7 +1,7 @@
 {
-  "name": "upwork-backend",
+  "name": "matchflow-backend",
   "version": "1.0.0",
-  "description": "Backend server for Upwork-like platform",
+  "description": "Backend server for MatchFlow platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -9,7 +9,7 @@
     "seed": "node seed-admin.js"
   },
   "keywords": [
-    "upwork",
+    "matchflow",
     "freelance",
     "backend"
   ],

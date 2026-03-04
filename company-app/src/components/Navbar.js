@@ -135,7 +135,7 @@ const Navbar = () => {
         {/* Left: Logo */}
         <div className="upw-nav-left">
           <Link to="/dashboard" className="upw-logo">
-            <span className="upw-logo-text">upwork</span>
+            <span className="upw-logo-text">MatchFlow</span>
           </Link>
         </div>
 

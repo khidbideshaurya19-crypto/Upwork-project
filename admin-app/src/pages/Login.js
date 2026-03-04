@@ -5,7 +5,7 @@ import { adminLogin } from '../utils/api';
 import './Auth.css';
 
 const Login = () => {
-  const [email, setEmail] = useState('admin@upwork.com');
+  const [email, setEmail] = useState('admin@matchflow.com');
   const [password, setPassword] = useState('Admin@123456');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,7 +45,7 @@ const Login = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              placeholder="admin@upwork.com"
+              placeholder="admin@matchflow.com"
             />
           </div>
 
@@ -69,11 +69,11 @@ const Login = () => {
         <div className="credentials-info">
           <h3>📋 Default Credentials:</h3>
           <p><strong>Super Admin:</strong></p>
-          <p>Email: admin@upwork.com</p>
+          <p>Email: admin@matchflow.com</p>
           <p>Password: Admin@123456</p>
           <hr />
           <p><strong>Moderator:</strong></p>
-          <p>Email: moderator@upwork.com</p>
+          <p>Email: moderator@matchflow.com</p>
           <p>Password: Moderator@123</p>
         </div>
       </div>

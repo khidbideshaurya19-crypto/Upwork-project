@@ -93,7 +93,7 @@ const Navbar = () => {
         <div className="upw-nav-inner">
           <div className="upw-nav-left">
             <Link to="/admin/dashboard" className="upw-logo">
-              <span className="upw-logo-text">upwork</span>
+              <span className="upw-logo-text">MatchFlow</span>
               <span className="adm-logo-tag">Admin</span>
             </Link>
           </div>
@@ -164,7 +164,7 @@ const Navbar = () => {
       <div className="upw-nav-inner">
         <div className="upw-nav-left">
           <Link to="/dashboard" className="upw-logo">
-            <span className="upw-logo-text">upwork</span>
+            <span className="upw-logo-text">MatchFlow</span>
           </Link>
         </div>
 

@@ -1,7 +1,7 @@
 {
-  "name": "upwork-admin",
+  "name": "matchflow-admin",
   "version": "1.0.0",
-  "description": "Admin Panel for Upwork-like platform",
+  "description": "Admin Panel for MatchFlow platform",
   "private": true,
   "proxy": "http://localhost:5000",
   "dependencies": {

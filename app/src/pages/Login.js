@@ -120,7 +120,7 @@ const Login = () => {
 
         {selectedRole === 'admin' && (
           <div className="credentials-hint">
-            <p><strong>Default Admin:</strong> admin@upwork.com / Admin@123456</p>
+            <p><strong>Default Admin:</strong> admin@matchflow.com / Admin@123456</p>
           </div>
         )}
 

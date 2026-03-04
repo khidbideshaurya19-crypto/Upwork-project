@@ -8,12 +8,12 @@ const seedAdmin = async () => {
     console.log('🔥 Connecting to Firebase / Firestore...');
 
     // Check if admin already exists
-    const existingAdmin = await Admin.findOne({ email: 'admin@upwork.com' });
+    const existingAdmin = await Admin.findOne({ email: 'admin@matchflow.com' });
 
     if (existingAdmin) {
       console.log('ℹ️  Admin user already exists');
       console.log('\n📋 Admin Credentials:');
-      console.log('   Email: admin@upwork.com');
+      console.log('   Email: admin@matchflow.com');
       console.log('   Password: Admin@123456');
       return;
     }
@@ -21,7 +21,7 @@ const seedAdmin = async () => {
     // Create super admin
     const admin = new Admin({
       name: 'Super Admin',
-      email: 'admin@upwork.com',
+      email: 'admin@matchflow.com',
       password: 'Admin@123456',
       role: 'super_admin',
       isActive: true,
@@ -38,14 +38,14 @@ const seedAdmin = async () => {
     await admin.save();
     console.log('✅ Admin user created successfully!');
     console.log('\n📋 Admin Credentials:');
-    console.log('   Email: admin@upwork.com');
+    console.log('   Email: admin@matchflow.com');
     console.log('   Password: Admin@123456');
     console.log('\n🔐 Access Admin Panel: http://localhost:3002');
 
     // Create moderator admin
     const moderator = new Admin({
       name: 'Moderator',
-      email: 'moderator@upwork.com',
+      email: 'moderator@matchflow.com',
       password: 'Moderator@123',
       role: 'moderator',
       isActive: true,
@@ -61,7 +61,7 @@ const seedAdmin = async () => {
 
     await moderator.save();
     console.log('\n📋 Moderator Credentials:');
-    console.log('   Email: moderator@upwork.com');
+    console.log('   Email: moderator@matchflow.com');
     console.log('   Password: Moderator@123');
 
     console.log('\n✅ Database seeding completed!');

@@ -1,7 +1,7 @@
 {
   "name": "matchflow-platform",
   "version": "1.0.0",
-  "description": "Complete Upwork-like freelance marketplace platform",
+  "description": "MatchFlow - freelance marketplace platform",
   "scripts": {
     "install-all": "npm install && cd backend && npm install && cd ../app && npm install && cd ..",
     "backend": "cd backend && npm start",
@@ -10,7 +10,7 @@
     "start": "npm run dev"
   },
   "keywords": [
-    "upwork",
+    "matchflow",
     "freelance",
     "marketplace",
     "react",
