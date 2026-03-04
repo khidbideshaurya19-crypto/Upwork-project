@@ -5,6 +5,7 @@ const User = require('../models/User');
 const Project = require('../models/Project');
 const Application = require('../models/Application');
 const Message = require('../models/Message');
+const { sendApprovalEmail, sendRejectionEmail } = require('../utils/mailer');
 
 // ---- Utils ----
 function toDate(v) {
@@ -271,6 +272,9 @@ router.put('/companies/:companyId/approve', adminAuth, checkPermission('manageUs
     company.adminRejectionReason = '';
     await company.save();
 
+    // Send approval email (non-blocking)
+    sendApprovalEmail(company);
+
     res.json({ message: 'Company approved successfully', company: safeUser(company) });
   } catch (error) {
     console.error('Approve company error:', error);
@@ -290,6 +294,9 @@ router.put('/companies/:companyId/reject', adminAuth, checkPermission('manageUse
     company.adminApproved = false;
     company.adminRejectionReason = reason || 'Your application did not meet our verification requirements.';
     await company.save();
+
+    // Send rejection email (non-blocking)
+    sendRejectionEmail(company, company.adminRejectionReason);
 
     res.json({ message: 'Company rejected', company: safeUser(company) });
   } catch (error) {
