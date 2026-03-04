@@ -7,6 +7,7 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const Application = require('../models/Application');
 const { auth } = require('../middleware/auth');
+const upload = require('../middleware/upload');
 
 // ── Helpers ──
 function safeDate(v) {
@@ -130,8 +131,9 @@ router.get('/:id/milestones', auth, async (req, res) => {
 
 // ═══════════════════════════════════════
 // PUT /api/contracts/:id/milestones/:milestoneId — Update milestone status
+// Supports file uploads when submitting deliverables
 // ═══════════════════════════════════════
-router.put('/:id/milestones/:milestoneId', auth, async (req, res) => {
+router.put('/:id/milestones/:milestoneId', auth, upload.array('deliverables', 10), async (req, res) => {
   try {
     const contract = await Contract.findById(req.params.id);
     if (!contract) return res.status(404).json({ message: 'Contract not found' });
@@ -146,6 +148,16 @@ router.put('/:id/milestones/:milestoneId', auth, async (req, res) => {
 
     const { status, title, description, amount, dueDate, feedback } = req.body;
 
+    // Build file attachment metadata from uploaded files
+    const newFiles = (req.files || []).map(f => ({
+      filename: f.filename,
+      originalName: f.originalname,
+      mimetype: f.mimetype,
+      size: f.size,
+      url: `/uploads/${f.filename}`,
+      uploadedAt: new Date().toISOString()
+    }));
+
     // Company can: start work, submit for review
     if (contract.companyId === req.userId) {
       if (status === 'in-progress' && milestone.status === 'pending') {
@@ -154,6 +166,10 @@ router.put('/:id/milestones/:milestoneId', auth, async (req, res) => {
       } else if (status === 'submitted' && (milestone.status === 'in-progress' || milestone.status === 'revision-requested')) {
         milestone.status = 'submitted';
         milestone.submittedAt = new Date();
+        // Append deliverable files
+        if (newFiles.length > 0) {
+          milestone.attachments = [...(milestone.attachments || []), ...newFiles];
+        }
       }
     }
 
@@ -229,8 +245,9 @@ router.delete('/:id/milestones/:milestoneId', auth, async (req, res) => {
 
 // ═══════════════════════════════════════
 // POST /api/contracts/:id/updates — Post a progress update
+// Supports file attachments (up to 10 files)
 // ═══════════════════════════════════════
-router.post('/:id/updates', auth, async (req, res) => {
+router.post('/:id/updates', auth, upload.array('attachments', 10), async (req, res) => {
   try {
     const contract = await Contract.findById(req.params.id);
     if (!contract) return res.status(404).json({ message: 'Contract not found' });
@@ -241,6 +258,16 @@ router.post('/:id/updates', auth, async (req, res) => {
     const { message, type } = req.body;
     if (!message || !message.trim()) return res.status(400).json({ message: 'Message is required' });
 
+    // Build file attachment metadata
+    const files = (req.files || []).map(f => ({
+      filename: f.filename,
+      originalName: f.originalname,
+      mimetype: f.mimetype,
+      size: f.size,
+      url: `/uploads/${f.filename}`,
+      uploadedAt: new Date().toISOString()
+    }));
+
     const author = await User.findById(req.userId);
 
     const update = new ProjectUpdate({
@@ -250,7 +277,8 @@ router.post('/:id/updates', auth, async (req, res) => {
       authorName: author ? (author.companyName || author.name) : 'Unknown',
       authorRole: contract.companyId === req.userId ? 'company' : 'client',
       message: message.trim(),
-      type: type || 'update' // update, milestone-update, revision, approval, system
+      type: type || 'update',
+      attachments: files
     });
     await update.save();
 

@@ -719,3 +719,182 @@
   color: var(--text-secondary);
   margin: 0;
 }
+
+/* ═══════════════════════════════════════════════
+   FILE ATTACHMENTS & UPLOAD STYLES
+   ═══════════════════════════════════════════════ */
+
+/* Attachment section in milestones & updates */
+.ws-attachments {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.ws-update-attachments {
+  border-top: none;
+  margin-top: 6px;
+  padding-top: 0;
+}
+
+.ws-attachments-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ws-attachments-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* File chip (clickable download link) */
+.ws-file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #374151;
+  font-size: 12px;
+  transition: all 0.15s;
+  max-width: 220px;
+}
+
+.ws-file-chip:hover {
+  background: #e0e7ff;
+  border-color: #818cf8;
+  color: #4338ca;
+}
+
+.ws-file-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.ws-file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.ws-file-size {
+  font-size: 10px;
+  color: #9ca3af;
+  flex-shrink: 0;
+}
+
+/* Upload button (label styled as button) */
+.ws-file-upload-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  color: #6b7280;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ws-file-upload-btn:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  color: #374151;
+}
+
+/* Submit with files row */
+.ws-submit-with-files {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ws-file-count {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* Update form actions row */
+.ws-update-form-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+
+.ws-update-form-actions .ws-submit-btn {
+  margin-left: auto;
+}
+
+/* Selected file tags */
+.ws-selected-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 1;
+}
+
+.ws-selected-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: #e0e7ff;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #4338ca;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-remove-file {
+  background: none;
+  border: none;
+  color: #6366f1;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.ws-remove-file:hover {
+  color: #ef4444;
+}
+
+/* Image preview in file chip */
+.ws-file-chip img {
+  width: 32px;
+  height: 32px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+@media (max-width: 600px) {
+  .ws-submit-with-files {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .ws-update-form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .ws-update-form-actions .ws-submit-btn {
+    margin-left: 0;
+  }
+}

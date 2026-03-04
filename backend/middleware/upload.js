@@ -25,22 +25,37 @@ const fileFilter = (req, file, cb) => {
     'application/pdf',
     'application/msword',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    'application/vnd.ms-powerpoint',
+    'application/zip',
+    'application/x-zip-compressed',
+    'application/x-rar-compressed',
+    'text/plain',
+    'text/csv',
     'image/jpeg',
     'image/png',
-    'image/jpg'
+    'image/jpg',
+    'image/gif',
+    'image/svg+xml',
+    'video/mp4',
+    'video/quicktime',
+    'audio/mpeg',
+    'audio/wav'
   ];
   
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type. Only PDF, DOC, DOCX, JPG, JPEG, PNG allowed.'), false);
+    cb(new Error('File type not allowed. Supported: images, documents, spreadsheets, presentations, archives, audio, video.'), false);
   }
 };
 
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
+    fileSize: 25 * 1024 * 1024 // 25MB limit
   },
   fileFilter: fileFilter
 });

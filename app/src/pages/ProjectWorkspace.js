@@ -23,11 +23,37 @@ const ProjectWorkspace = () => {
   // Update form
   const [updateText, setUpdateText] = useState('');
   const [postingUpdate, setPostingUpdate] = useState(false);
+  const [updateFiles, setUpdateFiles] = useState([]);
 
   // Milestone action
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
+
+  // Milestone deliverable uploads (keyed by milestoneId)
+  const [milestoneFiles, setMilestoneFiles] = useState({});
+
+  const BACKEND_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
+
+  const getFileIcon = (mimetype) => {
+    if (!mimetype) return '📄';
+    if (mimetype.startsWith('image/')) return '🖼️';
+    if (mimetype.startsWith('video/')) return '🎬';
+    if (mimetype.startsWith('audio/')) return '🎵';
+    if (mimetype.includes('pdf')) return '📕';
+    if (mimetype.includes('zip') || mimetype.includes('rar')) return '📦';
+    if (mimetype.includes('spreadsheet') || mimetype.includes('excel')) return '📊';
+    if (mimetype.includes('presentation') || mimetype.includes('powerpoint')) return '📽️';
+    if (mimetype.includes('word') || mimetype.includes('document')) return '📝';
+    return '📄';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   const isClient = user?.role === 'client';
   const isCompany = user?.role === 'company';
@@ -90,7 +116,21 @@ const ProjectWorkspace = () => {
   const handleMilestoneAction = async (milestoneId, status, feedback) => {
     try {
       setActionLoading(true);
-      await api.put(`/contracts/${contractId}/milestones/${milestoneId}`, { status, feedback });
+      const files = milestoneFiles[milestoneId] || [];
+      // Use FormData when submitting deliverables with files
+      if ((status === 'submitted') && files.length > 0) {
+        const formData = new FormData();
+        formData.append('status', status);
+        if (feedback) formData.append('feedback', feedback);
+        files.forEach(f => formData.append('deliverables', f));
+        await api.put(`/contracts/${contractId}/milestones/${milestoneId}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        // Clear files after upload
+        setMilestoneFiles(prev => ({ ...prev, [milestoneId]: [] }));
+      } else {
+        await api.put(`/contracts/${contractId}/milestones/${milestoneId}`, { status, feedback });
+      }
       fetchContract();
     } catch (err) {
       alert(err.response?.data?.message || 'Action failed');
@@ -117,8 +157,18 @@ const ProjectWorkspace = () => {
     if (!updateText.trim()) return;
     try {
       setPostingUpdate(true);
-      await api.post(`/contracts/${contractId}/updates`, { message: updateText });
+      if (updateFiles.length > 0) {
+        const formData = new FormData();
+        formData.append('message', updateText);
+        updateFiles.forEach(f => formData.append('attachments', f));
+        await api.post(`/contracts/${contractId}/updates`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+      } else {
+        await api.post(`/contracts/${contractId}/updates`, { message: updateText });
+      }
       setUpdateText('');
+      setUpdateFiles([]);
       fetchContract();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to post update');
@@ -420,6 +470,29 @@ const ProjectWorkspace = () => {
                       </div>
                     )}
 
+                    {/* Deliverable Attachments */}
+                    {m.attachments && m.attachments.length > 0 && (
+                      <div className="ws-attachments">
+                        <div className="ws-attachments-label">📎 Deliverables ({m.attachments.length})</div>
+                        <div className="ws-attachments-list">
+                          {m.attachments.map((file, fi) => (
+                            <a
+                              key={fi}
+                              href={`${BACKEND_URL}${file.url}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="ws-file-chip"
+                              title={file.originalName}
+                            >
+                              <span className="ws-file-icon">{getFileIcon(file.mimetype)}</span>
+                              <span className="ws-file-name">{file.originalName}</span>
+                              <span className="ws-file-size">{formatFileSize(file.size)}</span>
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Actions */}
                     {contract.status === 'active' && (
                       <div className="ws-ms-actions">
@@ -438,18 +511,56 @@ const ProjectWorkspace = () => {
                           </>
                         )}
                         {isCompany && m.status === 'in-progress' && (
-                          <button
-                            className="ws-action-btn ws-btn-amber"
-                            onClick={() => handleMilestoneAction(m._id, 'submitted')}
-                            disabled={actionLoading}
-                          >📤 Submit for Review</button>
+                          <div className="ws-submit-with-files">
+                            <label className="ws-file-upload-btn">
+                              📎 Attach Files
+                              <input
+                                type="file"
+                                multiple
+                                hidden
+                                onChange={(e) => setMilestoneFiles(prev => ({
+                                  ...prev,
+                                  [m._id]: [...(prev[m._id] || []), ...Array.from(e.target.files)]
+                                }))}
+                              />
+                            </label>
+                            {(milestoneFiles[m._id] || []).length > 0 && (
+                              <span className="ws-file-count">
+                                {milestoneFiles[m._id].length} file(s) selected
+                              </span>
+                            )}
+                            <button
+                              className="ws-action-btn ws-btn-amber"
+                              onClick={() => handleMilestoneAction(m._id, 'submitted')}
+                              disabled={actionLoading}
+                            >📤 Submit for Review</button>
+                          </div>
                         )}
                         {isCompany && m.status === 'revision-requested' && (
-                          <button
-                            className="ws-action-btn ws-btn-amber"
-                            onClick={() => handleMilestoneAction(m._id, 'submitted')}
-                            disabled={actionLoading}
-                          >📤 Resubmit</button>
+                          <div className="ws-submit-with-files">
+                            <label className="ws-file-upload-btn">
+                              📎 Attach Files
+                              <input
+                                type="file"
+                                multiple
+                                hidden
+                                onChange={(e) => setMilestoneFiles(prev => ({
+                                  ...prev,
+                                  [m._id]: [...(prev[m._id] || []), ...Array.from(e.target.files)]
+                                }))}
+                              />
+                            </label>
+                            {(milestoneFiles[m._id] || []).length > 0 && (
+                              <span className="ws-file-count">
+                                {milestoneFiles[m._id].length} file(s) selected
+                              </span>
+                            )}
+                            <button
+                              className="ws-action-btn ws-btn-amber"
+                              onClick={() => handleMilestoneAction(m._id, 'submitted')}
+                              disabled={actionLoading}
+                            >📤 Resubmit</button>
+                          </div>
                         )}
 
                         {/* Client actions */}
@@ -495,9 +606,30 @@ const ProjectWorkspace = () => {
                   className="ws-textarea"
                   rows={3}
                 />
-                <button type="submit" className="ws-submit-btn" disabled={postingUpdate || !updateText.trim()}>
-                  {postingUpdate ? 'Posting...' : '📢 Post Update'}
-                </button>
+                <div className="ws-update-form-actions">
+                  <label className="ws-file-upload-btn">
+                    📎 Attach Files
+                    <input
+                      type="file"
+                      multiple
+                      hidden
+                      onChange={(e) => setUpdateFiles(prev => [...prev, ...Array.from(e.target.files)])}
+                    />
+                  </label>
+                  {updateFiles.length > 0 && (
+                    <div className="ws-selected-files">
+                      {updateFiles.map((f, i) => (
+                        <span key={i} className="ws-selected-file">
+                          {f.name}
+                          <button type="button" className="ws-remove-file" onClick={() => setUpdateFiles(prev => prev.filter((_, idx) => idx !== i))}>✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <button type="submit" className="ws-submit-btn" disabled={postingUpdate || !updateText.trim()}>
+                    {postingUpdate ? 'Posting...' : '📢 Post Update'}
+                  </button>
+                </div>
               </form>
             )}
 
@@ -519,6 +651,26 @@ const ProjectWorkspace = () => {
                         <span className="ws-update-time">{timeAgo(upd.createdAt)}</span>
                       </div>
                       <p className="ws-update-message">{upd.message}</p>
+                      {upd.attachments && upd.attachments.length > 0 && (
+                        <div className="ws-attachments ws-update-attachments">
+                          <div className="ws-attachments-list">
+                            {upd.attachments.map((file, fi) => (
+                              <a
+                                key={fi}
+                                href={`${BACKEND_URL}${file.url}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="ws-file-chip"
+                                title={file.originalName}
+                              >
+                                <span className="ws-file-icon">{getFileIcon(file.mimetype)}</span>
+                                <span className="ws-file-name">{file.originalName}</span>
+                                <span className="ws-file-size">{formatFileSize(file.size)}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
