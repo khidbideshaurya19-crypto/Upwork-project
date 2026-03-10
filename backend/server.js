@@ -63,6 +63,7 @@ app.use('/api/projects', require('./routes/projects'));
 app.use('/api/applications', require('./routes/applications'));
 app.use('/api/contracts', require('./routes/contracts'));
 app.use('/api/messages', require('./routes/messages'));
+app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/admin/auth', require('./routes/admin-auth'));
 app.use('/api/admin', require('./routes/admin'));
 

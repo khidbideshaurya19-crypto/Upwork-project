@@ -115,6 +115,9 @@ const Navbar = () => {
               <button className="upw-nav-link" onClick={() => navigate('/admin/company-verification')}>
                 Verification
               </button>
+              <button className="upw-nav-link" onClick={() => navigate('/admin/chat-alerts')}>
+                🚨 Chat Alerts
+              </button>
             </div>
 
             <button className="upw-icon-btn" title="Notifications">

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
+import ReviewModal from '../components/ReviewModal';
+import '../components/ReviewModal.css';
 import api from '../utils/api';
 import './ProjectWorkspace.css';
 
@@ -32,6 +34,11 @@ const ProjectWorkspace = () => {
 
   // Milestone deliverable uploads (keyed by milestoneId)
   const [milestoneFiles, setMilestoneFiles] = useState({});
+
+  // Reviews
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
+  const [existingReview, setExistingReview] = useState(null);
 
   const BACKEND_URL = process.env.REACT_APP_API_URL?.replace('/api', '') || 'http://localhost:5000';
 
@@ -177,6 +184,29 @@ const ProjectWorkspace = () => {
     }
   };
 
+  // ── Check review status ──
+  const checkReviewStatus = useCallback(async () => {
+    try {
+      const res = await api.get(`/reviews/check/${contractId}`);
+      setHasReviewed(res.data.hasReviewed);
+      setExistingReview(res.data.review);
+    } catch (err) {
+      console.error('Check review error:', err);
+    }
+  }, [contractId]);
+
+  useEffect(() => {
+    if (contract?.status === 'completed') {
+      checkReviewStatus();
+    }
+  }, [contract?.status, checkReviewStatus]);
+
+  const handleSubmitReview = async ({ rating, comment }) => {
+    await api.post('/reviews', { contractId, rating, comment });
+    setHasReviewed(true);
+    checkReviewStatus();
+  };
+
   // ── Complete project ──
   const handleCompleteProject = async () => {
     if (!window.confirm('Mark this project as completed? This cannot be undone.')) return;
@@ -258,6 +288,26 @@ const ProjectWorkspace = () => {
             </button>
           )}
         </div>
+
+        {/* Review prompt for completed contracts */}
+        {contract.status === 'completed' && !hasReviewed && (
+          <div className="review-prompt-banner">
+            <div className="review-prompt-text">
+              <strong>📝 How was your experience?</strong>
+              Leave a review for {isClient ? (contract.company?.companyName || contract.company?.name) : contract.client?.name}
+            </div>
+            <button className="review-prompt-btn" onClick={() => setShowReviewModal(true)}>
+              ★ Write Review
+            </button>
+          </div>
+        )}
+
+        {contract.status === 'completed' && hasReviewed && existingReview && (
+          <div className="review-submitted-banner">
+            ✅ You rated this {existingReview.rating}/5 stars.
+            {existingReview.comment && ` "${existingReview.comment.substring(0, 60)}${existingReview.comment.length > 60 ? '...' : ''}"`}
+          </div>
+        )}
 
         {/* Progress bar */}
         {totalMilestones > 0 && (
@@ -681,6 +731,15 @@ const ProjectWorkspace = () => {
       </div>
 
       {/* Feedback Modal */}
+      {/* Review Modal */}
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => setShowReviewModal(false)}
+        onSubmit={handleSubmitReview}
+        contractTitle={contract?.project?.title}
+        revieweeName={isClient ? (contract?.company?.companyName || contract?.company?.name) : contract?.client?.name}
+      />
+
       {feedbackModal && (
         <div className="ws-modal-overlay" onClick={() => setFeedbackModal(null)}>
           <div className="ws-modal" onClick={(e) => e.stopPropagation()}>

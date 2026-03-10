@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { StarRating } from '../components/ReviewModal';
+import '../components/ReviewModal.css';
 import api from '../utils/api';
 import './UserProfile.css';
 
@@ -9,6 +11,8 @@ const UserProfile = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reviews, setReviews] = useState([]);
+  const [reviewSummary, setReviewSummary] = useState(null);
 
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -26,7 +30,22 @@ const UserProfile = () => {
     };
 
     fetchUserProfile();
+    fetchReviews();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  const fetchReviews = async () => {
+    try {
+      const [reviewsRes, summaryRes] = await Promise.all([
+        api.get(`/reviews/user/${userId}`),
+        api.get(`/reviews/summary/${userId}`)
+      ]);
+      setReviews(reviewsRes.data.reviews || []);
+      setReviewSummary(summaryRes.data);
+    } catch (err) {
+      console.error('Error fetching reviews:', err);
+    }
+  };
 
   if (loading) {
     return (
@@ -60,10 +79,22 @@ const UserProfile = () => {
               {user.companyName?.charAt(0).toUpperCase() || user.name?.charAt(0).toUpperCase()}
             </div>
             <div className="profile-header-info">
-              <h1>{user.companyName || user.name}</h1>
+              <h1>
+                {user.companyName || user.name}
+                {(user.topRated || (reviewSummary && reviewSummary.topRated)) && (
+                  <span className="top-rated-badge top-rated-badge-lg" style={{ marginLeft: 12, verticalAlign: 'middle' }}>★ Top Rated</span>
+                )}
+              </h1>
               <div className="profile-meta">
                 {user.location && <span>📍 {user.location}</span>}
                 {user.industry && <span>🏢 {user.industry}</span>}
+                {reviewSummary && reviewSummary.totalReviews > 0 && (
+                  <span className="inline-rating">
+                    <StarRating rating={Math.round(reviewSummary.averageRating)} interactive={false} size={14} />
+                    <span className="rating-value">{reviewSummary.averageRating}</span>
+                    <span className="rating-count">({reviewSummary.totalReviews} review{reviewSummary.totalReviews !== 1 ? 's' : ''})</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -156,6 +187,67 @@ const UserProfile = () => {
               </div>
             </div>
           )}
+          {/* Reviews Section */}
+          <div className="profile-section reviews-section">
+            <div className="reviews-section-header">
+              <h2>Reviews & Ratings</h2>
+            </div>
+
+            {reviewSummary && reviewSummary.totalReviews > 0 ? (
+              <>
+                <div className="reviews-summary">
+                  <div className="reviews-summary-score">
+                    <div className="big-rating">{reviewSummary.averageRating}</div>
+                    <StarRating rating={Math.round(reviewSummary.averageRating)} interactive={false} size={18} />
+                    <div className="total-reviews">{reviewSummary.totalReviews} review{reviewSummary.totalReviews !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div className="reviews-distribution">
+                    {[5, 4, 3, 2, 1].map(star => (
+                      <div key={star} className="distribution-row">
+                        <span className="star-label">{star}</span>
+                        <span style={{ color: '#f59e0b', fontSize: 12 }}>★</span>
+                        <div className="distribution-bar">
+                          <div
+                            className="distribution-fill"
+                            style={{ width: `${reviewSummary.totalReviews > 0 ? (reviewSummary.distribution[star] / reviewSummary.totalReviews) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <span className="distribution-count">{reviewSummary.distribution[star]}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {reviews.map(review => (
+                  <div key={review._id} className="review-card">
+                    <div className="review-card-header">
+                      <div className="review-card-author">
+                        <div className="review-avatar">
+                          {(review.reviewerName || 'U').charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="review-author-name">{review.reviewerName}</div>
+                          <div className="review-author-role">{review.reviewerRole === 'client' ? 'Client' : 'Company'}</div>
+                        </div>
+                      </div>
+                      <span className="review-date">
+                        {new Date(review.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="review-card-stars">
+                      <StarRating rating={review.rating} interactive={false} size={16} />
+                    </div>
+                    {review.comment && (
+                      <p className="review-card-comment">{review.comment}</p>
+                    )}
+                  </div>
+                ))}
+              </>
+            ) : (
+              <div className="no-reviews">No reviews yet</div>
+            )}
+          </div>
+
         </div>
       </div>
     </>

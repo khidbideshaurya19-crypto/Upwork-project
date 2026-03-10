@@ -5,6 +5,8 @@ const User = require('../models/User');
 const Project = require('../models/Project');
 const Application = require('../models/Application');
 const Message = require('../models/Message');
+const ChatAlert = require('../models/ChatAlert');
+const Conversation = require('../models/Conversation');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/mailer');
 
 // ---- Utils ----
@@ -354,6 +356,102 @@ router.get('/reports', adminAuth, checkPermission('viewAnalytics'), async (req, 
     res.status(500).json({ message: 'Server error fetching reports' });
   }
 });
+
+// ============== CHAT ALERTS (Moderation) ==============
+
+// GET /api/admin/chat-alerts — list all flagged chat alerts
+router.get('/chat-alerts', adminAuth, checkPermission('viewAnalytics'), async (req, res) => {
+  try {
+    const { status, severity, page = 1, limit = 20 } = req.query;
+    const pageN = parseInt(page), limitN = parseInt(limit);
+
+    let allAlerts = await ChatAlert.find(status ? { status } : {});
+
+    if (severity) {
+      allAlerts = allAlerts.filter(a => a.severity === severity);
+    }
+
+    allAlerts.sort((a, b) => toDate(b.createdAt) - toDate(a.createdAt));
+    const total = allAlerts.length;
+    const slice = allAlerts.slice((pageN - 1) * limitN, pageN * limitN);
+
+    // Populate sender and conversation participant info
+    const alerts = await Promise.all(slice.map(async a => {
+      const [sender, conv] = await Promise.all([
+        a.senderId ? User.findById(a.senderId) : null,
+        a.conversationId ? Conversation.findById(a.conversationId) : null,
+      ]);
+      let client = null, company = null;
+      if (conv) {
+        [client, company] = await Promise.all([
+          conv.client ? User.findById(conv.client) : null,
+          conv.company ? User.findById(conv.company) : null,
+        ]);
+      }
+      return {
+        ...a.toJSON(),
+        senderInfo: sender ? { _id: sender._id, name: sender.name, email: sender.email, role: sender.role } : null,
+        conversationInfo: conv ? {
+          _id: conv._id,
+          client: client ? { _id: client._id, name: client.name, email: client.email } : conv.client,
+          company: company ? { _id: company._id, name: company.name, companyName: company.companyName, email: company.email } : conv.company,
+        } : null,
+      };
+    }));
+
+    // Count by status for the summary
+    const allForCounts = await ChatAlert.find({});
+    const counts = {
+      total: allForCounts.length,
+      pending: allForCounts.filter(a => a.status === 'pending').length,
+      reviewed: allForCounts.filter(a => a.status === 'reviewed').length,
+      dismissed: allForCounts.filter(a => a.status === 'dismissed').length,
+    };
+
+    res.json({
+      alerts,
+      counts,
+      pagination: { total, page: pageN, limit: limitN, pages: Math.ceil(total / limitN) }
+    });
+  } catch (error) {
+    console.error('Get chat alerts error:', error);
+    res.status(500).json({ message: 'Server error fetching chat alerts' });
+  }
+});
+
+// PUT /api/admin/chat-alerts/:alertId/review — mark alert as reviewed
+router.put('/chat-alerts/:alertId/review', adminAuth, checkPermission('manageUsers'), async (req, res) => {
+  try {
+    const { action, adminNotes } = req.body; // action: 'reviewed' | 'dismissed'
+    const alert = await ChatAlert.findById(req.params.alertId);
+    if (!alert) return res.status(404).json({ message: 'Alert not found' });
+
+    alert.status = action === 'dismissed' ? 'dismissed' : 'reviewed';
+    alert.reviewedBy = req.adminId;
+    alert.reviewedAt = new Date();
+    alert.adminNotes = adminNotes || '';
+    await alert.save();
+
+    res.json({ message: `Alert ${alert.status}`, alert: alert.toJSON() });
+  } catch (error) {
+    console.error('Review chat alert error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// DELETE /api/admin/chat-alerts/:alertId — delete an alert
+router.delete('/chat-alerts/:alertId', adminAuth, checkPermission('manageUsers'), async (req, res) => {
+  try {
+    const alert = await ChatAlert.findByIdAndDelete(req.params.alertId);
+    if (!alert) return res.status(404).json({ message: 'Alert not found' });
+    res.json({ message: 'Alert deleted' });
+  } catch (error) {
+    console.error('Delete chat alert error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============== END CHAT ALERTS ==============
 
 module.exports = router;
 

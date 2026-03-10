@@ -7,6 +7,8 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const { analyzeMessage } = require('../utils/chatModeration');
+const ChatAlert = require('../models/ChatAlert');
 
 // ---- Helpers ----
 function toDate(v) {
@@ -106,6 +108,38 @@ router.post('/conversation/:conversationId', [auth, upload.array('attachments', 
       content, attachments, status: 'sent'
     });
     await message.save();
+
+    // --- Chat Moderation: scan for outside-platform activity ---
+    if (content) {
+      const modResult = analyzeMessage(content);
+      if (modResult.flagged) {
+        const alert = new ChatAlert({
+          conversationId: req.params.conversationId,
+          messageId: message._id,
+          senderId: req.userId,
+          senderRole: req.user.role,
+          messageContent: content,
+          reasons: modResult.reasons,
+          severity: modResult.severity,
+          status: 'pending',
+        });
+        // Save alert in background — don't block the message send
+        alert.save().catch(err => console.error('Chat alert save error:', err));
+
+        // Notify admin panel via socket
+        const io = req.app.get('io');
+        if (io) {
+          io.to('admin-room').emit('chatAlert', {
+            alertId: alert._id,
+            severity: modResult.severity,
+            reasons: modResult.reasons,
+            senderRole: req.user.role,
+            conversationId: req.params.conversationId,
+          });
+        }
+      }
+    }
+    // --- End Chat Moderation ---
 
     // Update conversation
     conv.lastMessage = message._id;
@@ -250,6 +284,34 @@ router.put('/:messageId', auth, async (req, res) => {
     message.isEdited = true;
     message.editedAt = new Date();
     await message.save();
+
+    // --- Chat Moderation: scan edited message ---
+    const modResult = analyzeMessage(content.trim());
+    if (modResult.flagged) {
+      const alert = new ChatAlert({
+        conversationId: message.conversation,
+        messageId: message._id,
+        senderId: req.userId,
+        senderRole: req.user.role,
+        messageContent: content.trim(),
+        reasons: modResult.reasons,
+        severity: modResult.severity,
+        status: 'pending',
+      });
+      alert.save().catch(err => console.error('Chat alert save error:', err));
+
+      const ioAlert = req.app.get('io');
+      if (ioAlert) {
+        ioAlert.to('admin-room').emit('chatAlert', {
+          alertId: alert._id,
+          severity: modResult.severity,
+          reasons: modResult.reasons,
+          senderRole: req.user.role,
+          conversationId: message.conversation,
+        });
+      }
+    }
+    // --- End Chat Moderation ---
 
     const populatedMsg = await populateMessage(message);
     const conv = await Conversation.findById(message.conversation);

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import { useAuth } from '../context/AuthContext';
+import { StarRating } from '../components/ReviewModal';
+import '../components/ReviewModal.css';
 import api from '../utils/api';
 import './Profile.css';
 
@@ -30,10 +32,28 @@ const Profile = () => {
     confirmPassword: ''
   });
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [myReviews, setMyReviews] = useState([]);
+  const [myReviewSummary, setMyReviewSummary] = useState(null);
 
   useEffect(() => {
     fetchProfile();
+    fetchMyReviews();
   }, []);
+
+  const fetchMyReviews = async () => {
+    try {
+      const profileRes = await api.get('/profile');
+      const myId = profileRes.data.user._id || profileRes.data.user.id;
+      const [reviewsRes, summaryRes] = await Promise.all([
+        api.get(`/reviews/user/${myId}`),
+        api.get(`/reviews/summary/${myId}`)
+      ]);
+      setMyReviews(reviewsRes.data.reviews || []);
+      setMyReviewSummary(summaryRes.data);
+    } catch (err) {
+      console.error('Error fetching my reviews:', err);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -275,6 +295,70 @@ const Profile = () => {
                         <p>No social links added yet</p>
                       )}
                     </div>
+                  </div>
+
+                  {/* My Reviews Section */}
+                  <div className="profile-section reviews-section">
+                    <div className="reviews-section-header">
+                      <h2>My Reviews</h2>
+                      {myReviewSummary?.topRated && (
+                        <span className="top-rated-badge top-rated-badge-lg">★ Top Rated</span>
+                      )}
+                    </div>
+
+                    {myReviewSummary && myReviewSummary.totalReviews > 0 ? (
+                      <>
+                        <div className="reviews-summary">
+                          <div className="reviews-summary-score">
+                            <div className="big-rating">{myReviewSummary.averageRating}</div>
+                            <StarRating rating={Math.round(myReviewSummary.averageRating)} interactive={false} size={18} />
+                            <div className="total-reviews">{myReviewSummary.totalReviews} review{myReviewSummary.totalReviews !== 1 ? 's' : ''}</div>
+                          </div>
+                          <div className="reviews-distribution">
+                            {[5, 4, 3, 2, 1].map(star => (
+                              <div key={star} className="distribution-row">
+                                <span className="star-label">{star}</span>
+                                <span style={{ color: '#f59e0b', fontSize: 12 }}>★</span>
+                                <div className="distribution-bar">
+                                  <div
+                                    className="distribution-fill"
+                                    style={{ width: `${myReviewSummary.totalReviews > 0 ? (myReviewSummary.distribution[star] / myReviewSummary.totalReviews) * 100 : 0}%` }}
+                                  />
+                                </div>
+                                <span className="distribution-count">{myReviewSummary.distribution[star]}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {myReviews.map(review => (
+                          <div key={review._id} className="review-card">
+                            <div className="review-card-header">
+                              <div className="review-card-author">
+                                <div className="review-avatar">
+                                  {(review.reviewerName || 'U').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div className="review-author-name">{review.reviewerName}</div>
+                                  <div className="review-author-role">{review.reviewerRole === 'client' ? 'Client' : 'Company'}</div>
+                                </div>
+                              </div>
+                              <span className="review-date">
+                                {new Date(review.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <div className="review-card-stars">
+                              <StarRating rating={review.rating} interactive={false} size={16} />
+                            </div>
+                            {review.comment && (
+                              <p className="review-card-comment">{review.comment}</p>
+                            )}
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <div className="no-reviews">No reviews received yet</div>
+                    )}
                   </div>
                 </div>
 

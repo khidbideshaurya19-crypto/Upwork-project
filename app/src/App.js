@@ -22,6 +22,7 @@ import AdminUsers from './pages/AdminUsers';
 import AdminProjects from './pages/AdminProjects';
 import AdminReports from './pages/AdminReports';
 import AdminCompanyVerification from './pages/AdminCompanyVerification';
+import AdminChatAlerts from './pages/AdminChatAlerts';
 import PendingApproval from './pages/PendingApproval';
 import ProjectWorkspace from './pages/ProjectWorkspace';
 import MyContracts from './pages/MyContracts';
@@ -207,6 +208,15 @@ function App() {
               <AdminRoute>
                 <Navbar />
                 <AdminCompanyVerification />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/chat-alerts" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminChatAlerts />
               </AdminRoute>
             } 
           />

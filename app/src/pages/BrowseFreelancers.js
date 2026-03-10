@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import '../components/ReviewModal.css';
 import api from '../utils/api';
 import './Dashboard.css';
 
@@ -147,8 +148,11 @@ const BrowseFreelancers = () => {
                   {freelancer.verified && (
                     <span style={{ fontSize: '12px', color: '#0d6efd', fontWeight: '600' }}>✓ Verified</span>
                   )}
-                  {freelancer.rating && (
-                    <span>⭐ {freelancer.rating.toFixed(1)}</span>
+                  {freelancer.topRated && (
+                    <span className="top-rated-badge">★ Top Rated</span>
+                  )}
+                  {freelancer.rating > 0 && (
+                    <span>⭐ {freelancer.rating.toFixed(1)} {freelancer.reviewCount ? `(${freelancer.reviewCount})` : ''}</span>
                   )}
                 </div>
 
