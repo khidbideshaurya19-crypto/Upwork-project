@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import api from '../utils/api';
-import { io } from 'socket.io-client';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import './Dashboard.css';
 
 const Dashboard = () => {
@@ -22,29 +23,18 @@ const Dashboard = () => {
   useEffect(() => {
     fetchProjects();
     fetchMyApplications();
-    
-    // Setup Socket.IO for real-time updates
-    const socket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000');
-    
-    socket.on('connect', () => {
-      console.log('Connected to Socket.IO');
-      socket.emit('join', { userId: user?.id, role: 'company' });
-      socket.emit('subscribeToProjects');
-    });
 
-    socket.on('newProject', (project) => {
-      setNotification(`New project posted: ${project.title}`);
-      fetchProjects();
-      setTimeout(() => setNotification(null), 5000);
-    });
+    // Firestore: listen for new open projects
+    if (!user) return;
+    const projectsQ = query(collection(db, 'projects'), where('status', '==', 'open'));
+    const unsubProjects = onSnapshot(projectsQ, () => { fetchProjects(); });
 
-    socket.on('applicationStatusUpdate', (data) => {
-      setNotification(`Application ${data.status} for "${data.projectTitle}"`);
-      fetchMyApplications();
-      setTimeout(() => setNotification(null), 5000);
-    });
+    // Firestore: listen for application status updates for this company
+    const userId = user.id || user._id;
+    const appsQ = query(collection(db, 'applications'), where('company', '==', userId));
+    const unsubApps = onSnapshot(appsQ, () => { fetchMyApplications(); });
 
-    return () => socket.disconnect();
+    return () => { unsubProjects(); unsubApps(); };
   }, [user]);
 
   const fetchProjects = async () => {

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { io } from 'socket.io-client';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import Navbar from '../components/Navbar';
 import './Messages.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
 
 const Messages = () => {
   const { conversationId } = useParams();
@@ -24,7 +24,6 @@ const Messages = () => {
   const [editContent, setEditContent] = useState('');
   const [showMessageMenu, setShowMessageMenu] = useState(null);
   const messagesEndRef = useRef(null);
-  const socketRef = useRef(null);
   const fileInputRef = useRef(null);
   const activeConversationIdRef = useRef(conversationId || null);
 
@@ -34,13 +33,11 @@ const Messages = () => {
 
   useEffect(() => {
     fetchConversations();
-    setupSocket();
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
+    if (!currentUser) return;
+    const userId = currentUser.id || currentUser._id;
+    const convQ = query(collection(db, 'conversations'), where('company', '==', userId));
+    const unsubConv = onSnapshot(convQ, () => { fetchConversations(); });
+    return () => unsubConv();
   }, []);
 
   useEffect(() => {
@@ -54,72 +51,23 @@ const Messages = () => {
   }, [conversationId]);
 
   useEffect(() => {
+    if (!conversationId) return;
+    const msgsQ = query(
+      collection(db, 'messages'),
+      where('conversation', '==', conversationId)
+    );
+    const unsubMsgs = onSnapshot(msgsQ, () => {
+      if (String(conversationId) === String(activeConversationIdRef.current)) {
+        fetchConversation(conversationId);
+        fetchConversations();
+      }
+    });
+    return () => unsubMsgs();
+  }, [conversationId]);
+
+  useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  const setupSocket = () => {
-    if (!currentUser) return;
-
-    socketRef.current = io(SOCKET_URL);
-    
-    socketRef.current.emit('join', {
-      userId: currentUser.id,
-      role: currentUser.role
-    });
-
-    socketRef.current.on('newMessage', (data) => {
-      if (String(data.conversationId) === String(activeConversationIdRef.current)) {
-        setMessages(prev => {
-          if (prev.some(msg => msg._id === data.message._id)) {
-            return prev;
-          }
-          return [...prev, data.message];
-        });
-      }
-      fetchConversations();
-    });
-
-    socketRef.current.on('messageEdited', (data) => {
-      if (String(data.conversationId) === String(activeConversationIdRef.current)) {
-        setMessages(prev => prev.map(msg => 
-          msg._id === data.message._id ? data.message : msg
-        ));
-      }
-    });
-
-    socketRef.current.on('messagesRead', (data) => {
-      if (String(data.conversationId) === String(activeConversationIdRef.current)) {
-        setMessages(prev => prev.map(msg => 
-          msg.sender._id === currentUser.id ? { ...msg, status: 'read' } : msg
-        ));
-      }
-    });
-
-    socketRef.current.on('messageDeleted', (data) => {
-      if (String(data.conversationId) === String(activeConversationIdRef.current)) {
-        setMessages(prev => prev.filter(msg => msg._id !== data.messageId));
-      }
-      fetchConversations();
-    });
-
-    socketRef.current.on('conversationDeleted', (data) => {
-      if (String(data.conversationId) === String(activeConversationIdRef.current)) {
-        navigate('/messages');
-      }
-      fetchConversations();
-    });
-
-    socketRef.current.on('chatCleared', (data) => {
-      if (String(data.conversationId) === String(activeConversationIdRef.current)) {
-        setMessages([]);
-      }
-      fetchConversations();
-    });
-
-    socketRef.current.on('conversationStarted', () => {
-      fetchConversations();
-    });
-  };
 
   const fetchConversations = async () => {
     try {
@@ -161,23 +109,26 @@ const Messages = () => {
     
     try {
       setSending(true);
-      const formData = new FormData();
-      formData.append('content', newMessage);
-      
-      attachments.forEach(file => {
-        formData.append('attachments', file);
-      });
 
-      const response = await axios.post(
-        `${API_URL}/messages/conversation/${conversationId}`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
+      let response;
+      if (attachments.length > 0) {
+        const formData = new FormData();
+        formData.append('content', newMessage);
+        attachments.forEach(file => {
+          formData.append('attachments', file);
+        });
+        response = await axios.post(
+          `${API_URL}/messages/conversation/${conversationId}`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        response = await axios.post(
+          `${API_URL}/messages/conversation/${conversationId}`,
+          { content: newMessage },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      }
 
       setMessages(prev => [...prev, response.data.message]);
       setNewMessage('');

@@ -49,12 +49,12 @@
   font-size: 14px; font-weight: 500; color: #0d6efd; padding: 8px 18px;
   border-radius: 20px; border: 1.5px solid #d5dff5; transition: all .2s;
 }
-.lp-btn-signin:hover { background: #eff6ff; border-color: #0d6efd; }
-.lp-btn-get-started {
+.lp .lp-btn-signin:hover { background: #eff6ff; border-color: #0d6efd; }
+.lp .lp-btn-get-started {
   font-size: 14px; font-weight: 600; color: #fff; padding: 9px 22px;
   border-radius: 20px; background: #0d6efd; transition: all .25s;
 }
-.lp-btn-get-started:hover { background: #0b5ed7; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(13,110,253,.35); }
+.lp .lp-btn-get-started:hover { background: #0b5ed7; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(13,110,253,.35); }
 .lp-hamburger {
   display: none; flex-direction: column; gap: 5px;
   margin-left: auto; padding: 8px; border-radius: 8px;
@@ -128,19 +128,19 @@
 
 /* Hero CTA row */
 .lp-hero-actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-.lp-btn-hero-primary {
+.lp .lp-btn-hero-primary {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 14px 30px; border-radius: 20px; font-size: 15px; font-weight: 700;
   color: #fff; background: #0d6efd; transition: all .25s;
   box-shadow: 0 4px 16px rgba(13,110,253,.3);
 }
-.lp-btn-hero-primary:hover { background: #0b5ed7; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(13,110,253,.4); }
-.lp-btn-hero-outline {
+.lp .lp-btn-hero-primary:hover { background: #0b5ed7; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(13,110,253,.4); }
+.lp .lp-btn-hero-outline {
   display: inline-flex; align-items: center;
   padding: 14px 30px; border-radius: 20px; font-size: 15px; font-weight: 600;
   color: #0f172a; border: 1.5px solid #d5dff5; background: transparent; transition: all .25s;
 }
-.lp-btn-hero-outline:hover { border-color: #0d6efd; color: #0d6efd; background: #eff6ff; }
+.lp .lp-btn-hero-outline:hover { border-color: #0d6efd; color: #0d6efd; background: #eff6ff; }
 
 /* Stats strip */
 .lp-stats-strip {

@@ -214,7 +214,7 @@ const Profile = () => {
                 <div className="profile-header-left">
                   <div className="profile-header-avatar">
                     {imagePreview ? (
-                      <img src={imagePreview.startsWith('http') ? imagePreview : `http://localhost:5000${imagePreview}`} alt="Profile" className="profile-avatar" />
+                      <img src={imagePreview.startsWith('http') ? imagePreview : `${process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000'}${imagePreview}`} alt="Profile" className="profile-avatar" />
                     ) : (
                       <div className="profile-avatar-placeholder">
                         {formData.name ? formData.name.charAt(0).toUpperCase() : '?'}
@@ -434,7 +434,7 @@ const Profile = () => {
                 <div className="profile-avatar-upload">
                   <div className="profile-avatar-preview">
                     {imagePreview ? (
-                      <img src={imagePreview.startsWith('http') ? imagePreview : imagePreview.startsWith('blob:') ? imagePreview : `http://localhost:5000${imagePreview}`} alt="Profile Preview" className="profile-avatar" />
+                      <img src={imagePreview.startsWith('http') ? imagePreview : imagePreview.startsWith('blob:') ? imagePreview : `${process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000'}${imagePreview}`} alt="Profile Preview" className="profile-avatar" />
                     ) : (
                       <div className="profile-avatar-placeholder">
                         {formData.name.charAt(0).toUpperCase()}

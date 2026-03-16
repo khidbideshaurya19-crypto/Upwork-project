@@ -121,13 +121,6 @@ router.post('/:projectId', [auth, isCompany, upload.array('attachments', 5), val
       project: projectDoc ? { _id: projectDoc._id, title: projectDoc.title } : conversation.project
     };
 
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`client-${project.client}`).emit('newApplication', { projectId: project._id, projectTitle: project.title, application: populatedApp });
-      io.to(`client-${project.client}`).emit('conversationStarted', { conversation: populatedConv });
-      io.to(`company-${req.userId}`).emit('conversationStarted', { conversation: populatedConv });
-    }
-
     res.status(201).json({ message: 'Application submitted successfully', application: populatedApp, conversation: populatedConv });
   } catch (error) {
     console.error('Create application error:', error);
@@ -200,8 +193,6 @@ router.put('/:id/status', [auth, isClient], async (req, res) => {
     application.status = status;
     await application.save();
 
-    const io = req.app.get('io');
-
     if (status === 'accepted') {
       project.status = 'in-progress';
       project.assignedTo = application.company;
@@ -265,17 +256,6 @@ router.put('/:id/status', [auth, isClient], async (req, res) => {
         project: { _id: projectDoc._id, title: projectDoc.title }
       };
 
-      if (io) {
-        io.to(`client-${project.client}`).emit('conversationStarted', { conversation: populatedConv });
-        io.to(`company-${application.company}`).emit('conversationStarted', { conversation: populatedConv });
-      }
-    }
-
-    if (io) {
-      io.to(`company-${application.company}`).emit('applicationStatusUpdate', {
-        applicationId: application._id, status: application.status,
-        projectTitle: project.title
-      });
     }
 
     const populated = await populateApp(application);

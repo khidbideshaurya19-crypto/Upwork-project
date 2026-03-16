@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "upwork3-1d814"
+  },
+  "targets": {
+    "upwork3-1d814": {
+      "hosting": {
+        "app": ["upwork3-1d814"],
+        "company": ["upwork3-company"],
+        "admin": ["upwork3-admin"]
+      }
+    }
+  }
+}

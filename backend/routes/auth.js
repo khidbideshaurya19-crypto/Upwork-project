@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
+const { sendPasswordResetEmail } = require('../utils/mailer');
 
 // Build a safe user object without password / internal fields
 function publicUser(user) {
@@ -248,6 +250,113 @@ router.get('/me', async (req, res) => {
   } catch (error) {
     console.error('Get user error:', error);
     res.status(401).json({ message: 'Invalid token' });
+  }
+});
+
+// @route   POST /api/auth/forgot-password
+// @desc    Send password reset email
+// @access  Public
+router.post('/forgot-password', [
+  body('email').isEmail().withMessage('Valid email is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    // Always return success to prevent email enumeration
+    if (!user) {
+      return res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+    }
+
+    // Generate a secure reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Store hashed token and expiry on the user
+    user.passwordResetToken = resetTokenHash;
+    user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    user._isNew = false;
+    // Save without re-hashing the existing password
+    const { db } = require('../firebase');
+    await db.collection('users').doc(user._id).update({
+      passwordResetToken: resetTokenHash,
+      passwordResetExpires: new Date(Date.now() + 60 * 60 * 1000),
+      updatedAt: new Date()
+    });
+
+    // Send the reset email (fire-and-forget)
+    sendPasswordResetEmail(user, resetToken);
+
+    res.json({ message: 'If an account with that email exists, a password reset link has been sent.' });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({ message: 'Server error while processing password reset request' });
+  }
+});
+
+// @route   POST /api/auth/reset-password
+// @desc    Reset password using token
+// @access  Public
+router.post('/reset-password', [
+  body('token').notEmpty().withMessage('Reset token is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { token, password } = req.body;
+
+    // Hash the provided token to compare with stored hash
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+
+    // Find user with matching token
+    const { db } = require('../firebase');
+    const snap = await db.collection('users')
+      .where('passwordResetToken', '==', tokenHash)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    const userDoc = snap.docs[0];
+    const userData = userDoc.data();
+
+    // Check if token has expired
+    const expiresAt = userData.passwordResetExpires?.toDate
+      ? userData.passwordResetExpires.toDate()
+      : new Date(userData.passwordResetExpires);
+
+    if (expiresAt < new Date()) {
+      return res.status(400).json({ message: 'Invalid or expired reset token' });
+    }
+
+    // Load a proper User instance, update password, and save (triggers bcrypt hash)
+    const user = await User.findById(userDoc.id);
+    user.password = password;
+    user._passwordChanged = true;
+    await user.save();
+
+    // Clear the reset token fields
+    await db.collection('users').doc(userDoc.id).update({
+      passwordResetToken: null,
+      passwordResetExpires: null,
+      updatedAt: new Date()
+    });
+
+    res.json({ message: 'Password has been reset successfully. You can now log in with your new password.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ message: 'Server error while resetting password' });
   }
 });
 

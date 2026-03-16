@@ -5,7 +5,7 @@
 .ws-loading {
   text-align: center;
   padding: 60px 20px;
-  color: var(--text-secondary);
+  color: #64748b;
   font-size: 16px;
 }
 
@@ -32,30 +32,30 @@
 
 .ws-back-btn {
   background: none;
-  border: 1px solid var(--border-color);
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 6px 12px;
   cursor: pointer;
-  color: var(--text-secondary);
+  color: #64748b;
   font-size: 13px;
   white-space: nowrap;
   margin-top: 4px;
 }
 
 .ws-back-btn:hover {
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
 }
 
 .ws-title {
   font-size: 22px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1e293b;
   margin: 0 0 4px;
 }
 
 .ws-subtitle {
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #64748b;
   margin: 0;
   display: flex;
   align-items: center;
@@ -98,8 +98,8 @@
 
 /* ── Progress ── */
 .ws-progress-section {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px 20px;
   margin-bottom: 20px;
@@ -109,13 +109,13 @@
   display: flex;
   justify-content: space-between;
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #64748b;
   margin-bottom: 8px;
 }
 
 .ws-progress-bar {
   height: 8px;
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
   border-radius: 4px;
   overflow: hidden;
 }
@@ -131,7 +131,7 @@
 .ws-tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 2px solid var(--border-color);
+  border-bottom: 2px solid #e2e8f0;
   margin-bottom: 20px;
 }
 
@@ -142,7 +142,7 @@
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-secondary);
+  color: #64748b;
   border-bottom: 2px solid transparent;
   margin-bottom: -2px;
   display: flex;
@@ -152,7 +152,7 @@
 }
 
 .ws-tab:hover {
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
 .ws-tab.active {
@@ -161,7 +161,7 @@
 }
 
 .ws-tab-count {
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
   padding: 1px 7px;
   border-radius: 10px;
   font-size: 11px;
@@ -180,8 +180,8 @@
 
 /* ── Cards ── */
 .ws-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 20px;
 }
@@ -189,10 +189,10 @@
 .ws-card-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1e293b;
   margin: 0 0 14px;
   padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 /* ── Overview Grid ── */
@@ -222,17 +222,17 @@
 }
 
 .ws-detail-label {
-  color: var(--text-secondary);
+  color: #64748b;
 }
 
 .ws-detail-value {
-  color: var(--text-primary);
+  color: #1e293b;
   font-weight: 500;
 }
 
 .ws-project-desc {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #64748b;
   line-height: 1.5;
   margin: 0 0 12px;
 }
@@ -245,10 +245,10 @@
 
 .ws-skill-tag {
   padding: 3px 10px;
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
   border-radius: 14px;
   font-size: 11px;
-  color: var(--text-primary);
+  color: #1e293b;
   font-weight: 500;
 }
 
@@ -261,7 +261,7 @@
 }
 
 .ws-person + .ws-person {
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid #e2e8f0;
 }
 
 .ws-person-avatar {
@@ -284,12 +284,12 @@
 .ws-person-name {
   font-size: 14px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
 .ws-person-role {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: #64748b;
 }
 
 /* ── Stats grid ── */
@@ -302,19 +302,19 @@
 .ws-stat {
   text-align: center;
   padding: 10px;
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
   border-radius: 8px;
 }
 
 .ws-stat-value {
   font-size: 22px;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
 .ws-stat-label {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: #64748b;
   margin-top: 2px;
 }
 
@@ -330,7 +330,7 @@
   font-size: 16px;
   font-weight: 600;
   margin: 0;
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
 .ws-add-btn {
@@ -349,8 +349,8 @@
 }
 
 .ws-milestone-form {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 20px;
@@ -367,11 +367,11 @@
 .ws-input {
   flex: 1;
   padding: 9px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
   font-size: 13px;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #1e293b;
 }
 
 .ws-input-sm {
@@ -381,13 +381,13 @@
 .ws-textarea {
   width: 100%;
   padding: 9px 12px;
-  border: 1px solid var(--border-color);
+  border: 1px solid #e2e8f0;
   border-radius: 6px;
   font-size: 13px;
   resize: vertical;
   font-family: inherit;
-  background: var(--bg-primary);
-  color: var(--text-primary);
+  background: #ffffff;
+  color: #1e293b;
   box-sizing: border-box;
 }
 
@@ -415,7 +415,7 @@
 .ws-empty {
   text-align: center;
   padding: 40px 20px;
-  color: var(--text-secondary);
+  color: #64748b;
   font-size: 14px;
 }
 
@@ -427,8 +427,8 @@
 }
 
 .ws-milestone-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
   border-left: 4px solid #6b7280;
@@ -450,13 +450,13 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 13px;
-  color: var(--text-primary);
+  color: #1e293b;
   flex-shrink: 0;
 }
 
@@ -468,13 +468,13 @@
 .ws-ms-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1e293b;
   margin: 0 0 3px;
 }
 
 .ws-ms-desc {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #64748b;
   margin: 0;
   line-height: 1.4;
 }
@@ -489,7 +489,7 @@
 .ws-ms-amount {
   font-weight: 600;
   font-size: 15px;
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
 .ws-ms-status {
@@ -504,7 +504,7 @@
 
 .ws-ms-meta {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: #64748b;
   margin-top: 8px;
   padding-left: 40px;
 }
@@ -555,8 +555,8 @@
 
 /* ═══ Updates Feed ═══ */
 .ws-update-form {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 16px;
   margin-bottom: 20px;
@@ -575,11 +575,11 @@
   display: flex;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .ws-update-system {
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
   border-radius: 8px;
   margin-bottom: 4px;
   border-bottom: none;
@@ -614,27 +614,27 @@
 .ws-update-author {
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
 .ws-update-role {
   font-size: 11px;
   padding: 1px 7px;
-  background: var(--bg-tertiary);
+  background: #f1f5f9;
   border-radius: 8px;
-  color: var(--text-secondary);
+  color: #64748b;
   text-transform: capitalize;
 }
 
 .ws-update-time {
   font-size: 11px;
-  color: var(--text-secondary);
+  color: #64748b;
   margin-left: auto;
 }
 
 .ws-update-message {
   font-size: 14px;
-  color: var(--text-primary);
+  color: #1e293b;
   margin: 0;
   line-height: 1.5;
   white-space: pre-wrap;
@@ -652,7 +652,7 @@
 }
 
 .ws-modal {
-  background: var(--card-bg);
+  background: #ffffff;
   border-radius: 12px;
   padding: 24px;
   max-width: 500px;
@@ -663,13 +663,13 @@
 .ws-modal h3 {
   margin: 0 0 8px;
   font-size: 18px;
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
 .ws-modal p {
   margin: 0 0 12px;
   font-size: 14px;
-  color: var(--text-secondary);
+  color: #64748b;
 }
 
 .ws-modal-actions {
@@ -687,8 +687,8 @@
 }
 
 .contract-card {
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
   border-radius: 10px;
   padding: 18px 20px;
   cursor: pointer;
@@ -716,7 +716,7 @@
 
 .contract-card-meta {
   font-size: 13px;
-  color: var(--text-secondary);
+  color: #64748b;
   margin: 0;
 }
 

@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import api from '../utils/api';
-import { io } from 'socket.io-client';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
 import './Dashboard.css';
 
 const CompanyDashboard = () => {
@@ -32,28 +33,26 @@ const CompanyDashboard = () => {
   useEffect(() => {
     fetchProjects();
     fetchMyApplications();
-    
-    const socket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000');
-    
-    socket.on('connect', () => {
-      console.log('Connected to Socket.IO');
-      socket.emit('join', { userId: user?.id, role: 'company' });
-      socket.emit('subscribeToProjects');
-    });
 
-    socket.on('newProject', (project) => {
-      setNotification(`New project posted: ${project.title}`);
+    // Firestore: listen for new open projects
+    const projectsQ = query(collection(db, 'projects'), where('status', '==', 'open'));
+    const unsubProjects = onSnapshot(projectsQ, () => {
       fetchProjects();
-      setTimeout(() => setNotification(null), 5000);
     });
 
-    socket.on('applicationStatusUpdate', (data) => {
-      setNotification(`Application ${data.status} for "${data.projectTitle}"`);
-      fetchMyApplications();
-      setTimeout(() => setNotification(null), 5000);
-    });
+    // Firestore: listen for application status changes for this company
+    const userId = user?.id || user?._id;
+    if (userId) {
+      const appsQ = query(collection(db, 'applications'), where('company', '==', userId));
+      var unsubApps = onSnapshot(appsQ, () => {
+        fetchMyApplications();
+      });
+    }
 
-    return () => socket.disconnect();
+    return () => {
+      unsubProjects();
+      if (unsubApps) unsubApps();
+    };
   }, [user]);
 
   const fetchProjects = async () => {
@@ -456,7 +455,7 @@ const CompanyDashboard = () => {
                       <div className="upw-profile-avatar">
                         {user?.profileImage ? (
                           <img
-                            src={user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:5000${user.profileImage}`}
+                            src={user.profileImage.startsWith('http') ? user.profileImage : `${process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000'}${user.profileImage}`}
                             alt="Profile"
                             className="upw-profile-img"
                           />

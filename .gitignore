@@ -1,4 +1,19 @@
 node_modules
 .env
-*.env
+*.env.local
 uploads/
+
+# Firebase
+.firebase/
+firebase-debug.log
+
+# Firebase service account (NEVER commit this)
+firebase-service-account.json
+
+# React builds
+app/build
+company-app/build
+admin-app/build
+
+# Keep .env.production (no secrets, just URLs)
+!*.env.production

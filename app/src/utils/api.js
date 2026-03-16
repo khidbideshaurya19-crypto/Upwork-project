@@ -31,7 +31,11 @@ api.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('userRole');
-      window.location.href = '/login';
+      // Only redirect if not already on login/signup/public pages to avoid loop
+      const path = window.location.pathname;
+      if (path !== '/login' && path !== '/signup' && path !== '/' && path !== '/get-started') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

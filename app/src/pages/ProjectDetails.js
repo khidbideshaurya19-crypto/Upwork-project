@@ -249,7 +249,7 @@ const ProjectDetails = () => {
                         {app.attachments.map((file, index) => (
                           <li key={index}>
                             <a 
-                              href={`http://localhost:5000/${file.path}`} 
+                              href={`${process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000'}/${file.path}`} 
                               target="_blank" 
                               rel="noopener noreferrer"
                             >

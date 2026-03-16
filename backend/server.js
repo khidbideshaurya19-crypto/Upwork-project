@@ -1,6 +1,4 @@
 const express = require('express');
-const http = require('http');
-const socketIo = require('socket.io');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -8,19 +6,16 @@ require('dotenv').config({ path: path.join(__dirname, '.env') });
 // Initialize Firebase / Firestore BEFORE any routes
 require('./firebase');
 
+// CORS allowed origins from env or defaults
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'];
+
 const app = express();
-const server = http.createServer(app);
-const io = socketIo(server, {
-  cors: {
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true
-  }
-});
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3002', 'http://localhost:3003'],
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json());
@@ -28,32 +23,6 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Make io accessible to routes
-app.set('io', io);
-
-// Socket.IO connection
-io.on('connection', (socket) => {
-  console.log('New client connected:', socket.id);
-
-  // User joins their own room based on role and ID
-  socket.on('join', (data) => {
-    const { userId, role } = data;
-    const room = `${role}-${userId}`;
-    socket.join(room);
-    console.log(`User ${userId} joined room: ${room}`);
-  });
-
-  // Company subscribes to new projects
-  socket.on('subscribeToProjects', () => {
-    socket.join('projects-feed');
-    console.log('Client subscribed to projects feed');
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected:', socket.id);
-  });
-});
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
@@ -86,18 +55,14 @@ app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Start server directly — Firebase initializes lazily
-const PORT = process.env.PORT || 5000;
+// Local development: start HTTP server
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => {
+    console.log('✅ Firebase / Firestore initialized');
+    console.log(`✅ Server running on port ${PORT}`);
+  });
+}
 
-server.listen(PORT, () => {
-  console.log('\u2705 Firebase / Firestore initialized');
-  console.log(`\u2705 Server running on port ${PORT}`);
-  console.log('\uD83D\uDCE1 Socket.IO ready for real-time communication');
-});
-
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err);
-  server.close(() => process.exit(1));
-});
+// Cloud Functions export
+module.exports = app;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
+
 import PrivateRoute from './components/PrivateRoute';
 import RoleSelection from './pages/RoleSelection';
 import Landing from './pages/Landing';
@@ -59,8 +59,7 @@ const AdminRoute = ({ children }) => {
 
 function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
+    <AuthProvider>
         <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
@@ -225,7 +224,6 @@ function App() {
         </Routes>
       </Router>
     </AuthProvider>
-    </ThemeProvider>
   );
 }
 

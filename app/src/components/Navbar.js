@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useTheme } from '../context/ThemeContext';
+
 import axios from 'axios';
-import { io } from 'socket.io-client';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import './Navbar.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
@@ -11,11 +12,9 @@ const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
-  const { isDark, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const socketRef = React.useRef(null);
 
   const userRole = user?.role;
   const isAdmin = userRole === 'admin';
@@ -23,46 +22,23 @@ const Navbar = () => {
   const isClient = userRole === 'client';
 
   useEffect(() => {
-    if (user && !isAdmin) {
-      fetchUnreadCount();
-      setupSocket();
-    }
+    if (!user || isAdmin) return;
 
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
+    fetchUnreadCount();
+
+    // Firestore real-time listener for new messages
+    const userId = user.id || user._id;
+    const convRef = collection(db, 'conversations');
+    const q = isCompany
+      ? query(convRef, where('company', '==', userId))
+      : query(convRef, where('client', '==', userId));
+
+    const unsubscribe = onSnapshot(q, () => {
+      fetchUnreadCount();
+    });
+
+    return () => unsubscribe();
   }, [user]);
-
-  const setupSocket = () => {
-    socketRef.current = io(SOCKET_URL);
-    
-    socketRef.current.emit('join', {
-      userId: user.id || user._id,
-      role: user.role
-    });
-
-    socketRef.current.on('newMessage', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('messagesRead', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('conversationStarted', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('conversationDeleted', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('chatCleared', () => {
-      fetchUnreadCount();
-    });
-  };
 
   const fetchUnreadCount = async () => {
     try {
@@ -130,7 +106,7 @@ const Navbar = () => {
               <div className="upw-user-avatar">
                 {user?.profileImage ? (
                   <img 
-                    src={user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:5000${user.profileImage}`} 
+                    src={user.profileImage.startsWith('http') ? user.profileImage : `${SOCKET_URL}${user.profileImage}`} 
                     alt="Profile" 
                     className="upw-user-avatar-img"
                   />
@@ -214,23 +190,12 @@ const Navbar = () => {
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
           </button>
-          <button className="upw-icon-btn" title={isDark ? "Light Mode" : "Dark Mode"} onClick={toggleTheme}>
-            {isDark ? (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#62646a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-              </svg>
-            ) : (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#62646a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            )}
-          </button>
 
           <div className="upw-nav-user" onClick={() => setShowUserMenu(!showUserMenu)}>
             <div className="upw-user-avatar">
               {user?.profileImage ? (
                 <img 
-                  src={user.profileImage.startsWith('http') ? user.profileImage : `http://localhost:5000${user.profileImage}`} 
+                  src={user.profileImage.startsWith('http') ? user.profileImage : `${SOCKET_URL}${user.profileImage}`} 
                   alt="Profile" 
                   className="upw-user-avatar-img"
                 />

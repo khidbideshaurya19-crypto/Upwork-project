@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
-import { io } from 'socket.io-client';
+import { db } from '../firebase';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
 import './Navbar.css';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
-const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 'http://localhost:5000';
 
 const Navbar = () => {
   const { user, logout } = useAuth();
@@ -17,50 +17,16 @@ const Navbar = () => {
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const socketRef = React.useRef(null);
   const searchTimeoutRef = React.useRef(null);
 
   useEffect(() => {
-    if (user) {
-      fetchUnreadCount();
-      setupSocket();
-    }
-
-    return () => {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-      }
-    };
+    if (!user) return;
+    fetchUnreadCount();
+    const userId = user.id || user._id;
+    const q = query(collection(db, 'conversations'), where('company', '==', userId));
+    const unsub = onSnapshot(q, () => { fetchUnreadCount(); });
+    return () => unsub();
   }, [user]);
-
-  const setupSocket = () => {
-    socketRef.current = io(SOCKET_URL);
-    
-    socketRef.current.emit('join', {
-      userId: user.id,
-      role: user.role
-    });
-
-    socketRef.current.on('newMessage', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('messagesRead', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('conversationStarted', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('conversationDeleted', () => {
-      fetchUnreadCount();
-    });
-
-    socketRef.current.on('chatCleared', () => {
-      fetchUnreadCount();
-    });
-  };
 
   const fetchUnreadCount = async () => {
     try {

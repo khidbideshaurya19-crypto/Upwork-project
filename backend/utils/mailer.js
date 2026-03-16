@@ -15,6 +15,8 @@ const createTransporter = () => {
 
 const FROM_NAME = process.env.MAIL_FROM_NAME || 'MatchFlow';
 const FROM_EMAIL = process.env.SMTP_USER || 'noreply@matchflow.com';
+const COMPANY_URL = process.env.COMPANY_FRONTEND_URL || 'http://localhost:3001';
+const CLIENT_URL = process.env.CLIENT_FRONTEND_URL || 'http://localhost:3000';
 
 /**
  * Send company approval email
@@ -45,7 +47,7 @@ async function sendApprovalEmail(company) {
           <li>✅ Upload deliverables and manage your workspace</li>
         </ul>
         <div style="text-align: center; margin: 28px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard"
+          <a href="${COMPANY_URL}/dashboard"
              style="display: inline-block; background: #10b981; color: #fff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
             Go to Dashboard →
           </a>
@@ -113,7 +115,7 @@ async function sendRejectionEmail(company, reason) {
           <li>Add a valid website URL</li>
         </ul>
         <div style="text-align: center; margin: 28px 0;">
-          <a href="${process.env.FRONTEND_URL || 'http://localhost:3000'}/profile"
+          <a href="${COMPANY_URL}/profile"
              style="display: inline-block; background: #3b82f6; color: #fff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
             Update Profile →
           </a>
@@ -147,4 +149,68 @@ async function sendRejectionEmail(company, reason) {
   }
 }
 
-module.exports = { sendApprovalEmail, sendRejectionEmail };
+/**
+ * Send password reset email
+ */
+async function sendPasswordResetEmail(user, resetToken) {
+  const transporter = createTransporter();
+
+  const resetUrl = user.role === 'company'
+    ? `${COMPANY_URL}/reset-password?token=${resetToken}`
+    : `${CLIENT_URL}/reset-password?token=${resetToken}`;
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 8px; overflow: hidden; border: 1px solid #e5e7eb;">
+      <div style="background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 32px; text-align: center;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 28px;">Password Reset</h1>
+        <p style="color: #dbeafe; margin: 8px 0 0; font-size: 16px;">We received a request to reset your password</p>
+      </div>
+      <div style="padding: 32px;">
+        <p style="font-size: 16px; color: #374151; margin-bottom: 16px;">
+          Hi <strong>${user.name}</strong>,
+        </p>
+        <p style="font-size: 15px; color: #4b5563; line-height: 1.6;">
+          You requested a password reset for your <strong>${FROM_NAME}</strong> account. Click the button below to set a new password:
+        </p>
+        <div style="text-align: center; margin: 28px 0;">
+          <a href="${resetUrl}"
+             style="display: inline-block; background: #3b82f6; color: #fff; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px;">
+            Reset Password
+          </a>
+        </div>
+        <p style="font-size: 14px; color: #6b7280; line-height: 1.6;">
+          This link will expire in <strong>1 hour</strong>. If you didn't request this reset, you can safely ignore this email.
+        </p>
+        <div style="background: #f3f4f6; border-radius: 6px; padding: 12px 16px; margin-top: 20px;">
+          <p style="font-size: 13px; color: #6b7280; margin: 0;">
+            If the button doesn't work, copy and paste this link into your browser:<br/>
+            <a href="${resetUrl}" style="color: #3b82f6; word-break: break-all;">${resetUrl}</a>
+          </p>
+        </div>
+      </div>
+      <div style="background: #f9fafb; padding: 16px 32px; text-align: center; border-top: 1px solid #e5e7eb;">
+        <p style="font-size: 12px; color: #9ca3af; margin: 0;">
+          &copy; ${new Date().getFullYear()} ${FROM_NAME}. All rights reserved.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const mailOptions = {
+    from: `"${FROM_NAME}" <${FROM_EMAIL}>`,
+    to: user.email,
+    subject: `Reset your ${FROM_NAME} password`,
+    html
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`Password reset email sent to ${user.email} (messageId: ${info.messageId})`);
+    return info;
+  } catch (err) {
+    console.error(`Failed to send password reset email to ${user.email}:`, err.message);
+    return null;
+  }
+}
+
+module.exports = { sendApprovalEmail, sendRejectionEmail, sendPasswordResetEmail };
