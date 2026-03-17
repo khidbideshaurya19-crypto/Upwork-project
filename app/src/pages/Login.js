@@ -28,11 +28,7 @@ const Login = () => {
 
     try {
       await login(formData.email, formData.password, selectedRole);
-      if (selectedRole === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      navigate('/dashboard');
     } catch (err) {
       const resData = err.response?.data;
       // If company is pending/rejected, show verification status message
@@ -48,8 +44,7 @@ const Login = () => {
 
   const roleLabels = {
     client: { title: 'Client Login', desc: 'Post projects and hire companies' },
-    company: { title: 'Company Login', desc: 'Browse projects and apply for work' },
-    admin: { title: 'Admin Login', desc: 'Manage the platform' }
+    company: { title: 'Company Login', desc: 'Browse projects and apply for work' }
   };
 
   return (
@@ -74,12 +69,6 @@ const Login = () => {
             onClick={() => { setSelectedRole('company'); setError(''); }}
           >
             Company
-          </button>
-          <button
-            className={`role-tab ${selectedRole === 'admin' ? 'active' : ''}`}
-            onClick={() => { setSelectedRole('admin'); setError(''); }}
-          >
-            Admin
           </button>
         </div>
 
@@ -118,16 +107,8 @@ const Login = () => {
           </button>
         </form>
 
-        {selectedRole === 'admin' && (
-          <div className="credentials-hint">
-            <p><strong>Default Admin:</strong> admin@upwork.com / Admin@123456</p>
-          </div>
-        )}
-
         <div className="auth-footer">
-          {selectedRole !== 'admin' && (
-            <p>Don't have an account? <Link to="/signup">Sign up</Link></p>
-          )}
+          <p>Don't have an account? <Link to="/signup">Sign up</Link></p>
           <p><Link to="/">Back to Home</Link></p>
         </div>
       </div>
