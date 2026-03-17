@@ -9,6 +9,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Users from './pages/Users';
 import Projects from './pages/Projects';
+import Contracts from './pages/Contracts';
 import Reports from './pages/Reports';
 
 import './App.css';
@@ -66,6 +67,18 @@ function App() {
                 </>
               </PrivateRoute>
             } 
+          />
+
+          <Route
+            path="/contracts"
+            element={
+              <PrivateRoute>
+                <>
+                  <Navbar />
+                  <Contracts />
+                </>
+              </PrivateRoute>
+            }
           />
           
           <Route 

@@ -6,6 +6,7 @@ const ProjectUpdate = require('../models/ProjectUpdate');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const Application = require('../models/Application');
+const { createNotification, createNotificationsBulk } = require('../utils/notifications');
 const { auth } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
@@ -14,6 +15,18 @@ function safeDate(v) {
   if (!v) return null;
   if (v && typeof v.toDate === 'function') return v.toDate();
   return new Date(v);
+}
+
+function getActorLabel(contract, userId) {
+  if (contract.clientId === userId) return 'Client';
+  if (contract.companyId === userId) return 'Company';
+  return 'User';
+}
+
+function getOtherPartyId(contract, userId) {
+  if (contract.clientId === userId) return contract.companyId;
+  if (contract.companyId === userId) return contract.clientId;
+  return null;
 }
 
 async function populateContract(contract) {
@@ -83,6 +96,9 @@ router.post('/:id/milestones', auth, async (req, res) => {
     if (contract.clientId !== req.userId && contract.companyId !== req.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
+    if (contract.status !== 'active') {
+      return res.status(400).json({ message: 'Milestones can only be edited for active contracts' });
+    }
 
     const { title, description, amount, dueDate } = req.body;
     if (!title) return res.status(400).json({ message: 'Milestone title is required' });
@@ -139,6 +155,9 @@ router.put('/:id/milestones/:milestoneId', auth, upload.array('deliverables', 10
     if (!contract) return res.status(404).json({ message: 'Contract not found' });
     if (contract.clientId !== req.userId && contract.companyId !== req.userId) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (contract.status !== 'active') {
+      return res.status(400).json({ message: 'Milestones can only be edited for active contracts' });
     }
 
     const milestone = await Milestone.findById(req.params.milestoneId);
@@ -226,6 +245,9 @@ router.delete('/:id/milestones/:milestoneId', auth, async (req, res) => {
     if (contract.clientId !== req.userId && contract.companyId !== req.userId) {
       return res.status(403).json({ message: 'Not authorized' });
     }
+    if (contract.status !== 'active') {
+      return res.status(400).json({ message: 'Milestones can only be edited for active contracts' });
+    }
 
     const milestone = await Milestone.findById(req.params.milestoneId);
     if (!milestone || milestone.contractId !== contract._id) {
@@ -253,6 +275,9 @@ router.post('/:id/updates', auth, upload.array('attachments', 10), async (req, r
     if (!contract) return res.status(404).json({ message: 'Contract not found' });
     if (contract.clientId !== req.userId && contract.companyId !== req.userId) {
       return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (!['active', 'disputed'].includes(contract.status)) {
+      return res.status(400).json({ message: 'Updates can only be posted for active or disputed contracts' });
     }
 
     const { message, type } = req.body;
@@ -322,6 +347,9 @@ router.put('/:id/complete', auth, async (req, res) => {
     if (contract.status === 'completed') {
       return res.status(400).json({ message: 'Already completed' });
     }
+    if (contract.status !== 'active') {
+      return res.status(400).json({ message: 'Only active contracts can be completed' });
+    }
 
     contract.status = 'completed';
     contract.completedAt = new Date();
@@ -348,6 +376,235 @@ router.put('/:id/complete', auth, async (req, res) => {
     res.json({ message: 'Contract completed', contract: contract.toJSON() });
   } catch (err) {
     console.error('Complete contract error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ═══════════════════════════════════════
+// PUT /api/contracts/:id/dispute — Raise a dispute on an active contract
+// ═══════════════════════════════════════
+router.put('/:id/dispute', auth, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) return res.status(404).json({ message: 'Contract not found' });
+    if (contract.clientId !== req.userId && contract.companyId !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (contract.status === 'completed') {
+      return res.status(400).json({ message: 'Completed contracts cannot be disputed' });
+    }
+    if (contract.status === 'cancelled') {
+      return res.status(400).json({ message: 'Cancelled contracts cannot be disputed' });
+    }
+    if (contract.status === 'disputed') {
+      return res.status(400).json({ message: 'This contract is already in dispute' });
+    }
+    if (contract.status === 'cancellation-requested') {
+      return res.status(400).json({ message: 'Cancellation request is already pending admin review' });
+    }
+
+    const { reason, category } = req.body;
+    const trimmedReason = (reason || '').trim();
+    if (!trimmedReason) {
+      return res.status(400).json({ message: 'Dispute reason is required' });
+    }
+
+    contract.status = 'disputed';
+    contract.disputeReason = trimmedReason;
+    contract.disputeCategory = category || 'general';
+    contract.disputedBy = req.userId;
+    contract.disputedAt = new Date();
+    await contract.save();
+
+    const project = await Project.findById(contract.projectId);
+    if (project) {
+      project.status = 'disputed';
+      await project.save();
+    }
+
+    const actorLabel = getActorLabel(contract, req.userId);
+    const sysUpdate = new ProjectUpdate({
+      contractId: contract._id,
+      projectId: contract.projectId,
+      authorId: req.userId,
+      authorName: 'System',
+      authorRole: 'system',
+      message: `${actorLabel} raised a dispute: ${trimmedReason}`,
+      type: 'system'
+    });
+    await sysUpdate.save();
+
+    const otherPartyId = getOtherPartyId(contract, req.userId);
+    if (otherPartyId) {
+      await createNotification({
+        userId: otherPartyId,
+        type: 'contract_disputed',
+        title: 'Contract dispute raised',
+        message: `${actorLabel} raised a dispute: ${trimmedReason}`,
+        link: `/workspace/${contract._id}`,
+        data: { contractId: contract._id, projectId: contract.projectId },
+        createdBy: req.userId
+      });
+    }
+
+    res.json({ message: 'Dispute raised', contract: contract.toJSON() });
+  } catch (err) {
+    console.error('Raise dispute error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ═══════════════════════════════════════
+// PUT /api/contracts/:id/cancel — Request cancellation (admin will decide)
+// ═══════════════════════════════════════
+router.put('/:id/cancel', auth, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) return res.status(404).json({ message: 'Contract not found' });
+    if (contract.clientId !== req.userId && contract.companyId !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (contract.status === 'completed') {
+      return res.status(400).json({ message: 'Completed contracts cannot be cancelled' });
+    }
+    if (contract.status === 'cancelled') {
+      return res.status(400).json({ message: 'Contract already cancelled' });
+    }
+    if (contract.status === 'cancellation-requested') {
+      return res.status(400).json({ message: 'Cancellation request already submitted' });
+    }
+
+    const { reason } = req.body;
+    const trimmedReason = (reason || '').trim();
+    if (!trimmedReason) {
+      return res.status(400).json({ message: 'Cancellation reason is required' });
+    }
+
+    contract.statusBeforeCancellationRequest = contract.status;
+    contract.status = 'cancellation-requested';
+    contract.cancelRequestStatus = 'pending_admin_review';
+    contract.cancelRequestReason = trimmedReason;
+    contract.cancelRequestBy = req.userId;
+    contract.cancelRequestFor = getOtherPartyId(contract, req.userId);
+    contract.cancelRequestedAt = new Date();
+    contract.cancelResponse = '';
+    contract.cancelRespondedBy = null;
+    contract.cancelRespondedAt = null;
+    contract.cancelDecisionByAdmin = null;
+    contract.cancelDecisionReason = '';
+    contract.cancelDecisionAt = null;
+    await contract.save();
+
+    const actorLabel = getActorLabel(contract, req.userId);
+    const sysUpdate = new ProjectUpdate({
+      contractId: contract._id,
+      projectId: contract.projectId,
+      authorId: req.userId,
+      authorName: 'System',
+      authorRole: 'system',
+      message: `${actorLabel} requested contract cancellation: ${trimmedReason}. Admin review required.`,
+      type: 'system'
+    });
+    await sysUpdate.save();
+
+    const adminUsers = await User.find({ role: 'admin' });
+    const otherPartyId = getOtherPartyId(contract, req.userId);
+    const adminNotifications = adminUsers.map((adminUser) => ({
+      userId: adminUser._id,
+      type: 'cancellation_request_admin',
+      title: 'Cancellation request needs review',
+      message: `${actorLabel} requested cancellation for contract ${contract._id}.`,
+      link: '/admin/contracts',
+      data: { contractId: contract._id, projectId: contract.projectId },
+      createdBy: req.userId
+    }));
+
+    await createNotificationsBulk(adminNotifications);
+
+    if (otherPartyId) {
+      await createNotification({
+        userId: otherPartyId,
+        type: 'cancellation_requested',
+        title: 'Cancellation requested',
+        message: `${actorLabel} requested contract cancellation. Please respond for admin review.`,
+        link: `/workspace/${contract._id}`,
+        data: { contractId: contract._id, projectId: contract.projectId },
+        createdBy: req.userId
+      });
+    }
+
+    res.json({ message: 'Cancellation request sent to admin', contract: contract.toJSON() });
+  } catch (err) {
+    console.error('Cancel contract error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ═══════════════════════════════════════
+// PUT /api/contracts/:id/cancel-response — Counterparty response for admin review
+// ═══════════════════════════════════════
+router.put('/:id/cancel-response', auth, async (req, res) => {
+  try {
+    const contract = await Contract.findById(req.params.id);
+    if (!contract) return res.status(404).json({ message: 'Contract not found' });
+    if (contract.clientId !== req.userId && contract.companyId !== req.userId) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (contract.status !== 'cancellation-requested') {
+      return res.status(400).json({ message: 'No cancellation request is pending' });
+    }
+    if (contract.cancelRequestBy === req.userId) {
+      return res.status(400).json({ message: 'Requesting party cannot submit the response' });
+    }
+
+    const { response } = req.body;
+    const trimmedResponse = (response || '').trim();
+    if (!trimmedResponse) {
+      return res.status(400).json({ message: 'Response is required' });
+    }
+
+    contract.cancelResponse = trimmedResponse;
+    contract.cancelRespondedBy = req.userId;
+    contract.cancelRespondedAt = new Date();
+    contract.cancelRequestStatus = 'awaiting_admin_decision';
+    await contract.save();
+
+    const actorLabel = getActorLabel(contract, req.userId);
+    const sysUpdate = new ProjectUpdate({
+      contractId: contract._id,
+      projectId: contract.projectId,
+      authorId: req.userId,
+      authorName: 'System',
+      authorRole: 'system',
+      message: `${actorLabel} responded to cancellation request: ${trimmedResponse}`,
+      type: 'system'
+    });
+    await sysUpdate.save();
+
+    await createNotification({
+      userId: contract.cancelRequestBy,
+      type: 'cancellation_response',
+      title: 'Cancellation response received',
+      message: `${actorLabel} submitted a response for your cancellation request.`,
+      link: `/workspace/${contract._id}`,
+      data: { contractId: contract._id, projectId: contract.projectId },
+      createdBy: req.userId
+    });
+
+    const adminUsers = await User.find({ role: 'admin' });
+    await createNotificationsBulk(adminUsers.map((adminUser) => ({
+      userId: adminUser._id,
+      type: 'cancellation_response_admin',
+      title: 'Cancellation request ready for decision',
+      message: `Counterparty response submitted for contract ${contract._id}.`,
+      link: '/admin/contracts',
+      data: { contractId: contract._id, projectId: contract.projectId },
+      createdBy: req.userId
+    })));
+
+    res.json({ message: 'Response submitted for admin review', contract: contract.toJSON() });
+  } catch (err) {
+    console.error('Cancel response error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

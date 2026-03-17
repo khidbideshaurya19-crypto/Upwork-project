@@ -17,6 +17,7 @@ import UserProfile from './pages/UserProfile';
 import SearchCompany from './pages/SearchCompany';
 import Payments from './pages/Payments';
 import ApplicationStatus from './pages/ApplicationStatus';
+import Notifications from './pages/Notifications';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminUsers from './pages/AdminUsers';
 import AdminProjects from './pages/AdminProjects';
@@ -26,6 +27,7 @@ import AdminChatAlerts from './pages/AdminChatAlerts';
 import PendingApproval from './pages/PendingApproval';
 import ProjectWorkspace from './pages/ProjectWorkspace';
 import MyContracts from './pages/MyContracts';
+import PendingReviews from './pages/PendingReviews';
 import Navbar from './components/Navbar';
 import './App.css';
 
@@ -107,6 +109,14 @@ function App() {
               </PrivateRoute>
             } 
           />
+          <Route
+            path="/reviews/pending"
+            element={
+              <PrivateRoute>
+                <PendingReviews />
+              </PrivateRoute>
+            }
+          />
           <Route 
             path="/messages" 
             element={
@@ -162,6 +172,14 @@ function App() {
                 <ApplicationStatus />
               </PrivateRoute>
             } 
+          />
+          <Route
+            path="/notifications"
+            element={
+              <PrivateRoute>
+                <Notifications />
+              </PrivateRoute>
+            }
           />
 
           {/* Admin Routes */}

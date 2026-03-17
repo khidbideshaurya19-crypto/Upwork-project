@@ -34,6 +34,17 @@ const MyContracts = () => {
     return isNaN(dt.getTime()) ? 'N/A' : dt.toLocaleDateString();
   };
 
+  const getContractStatusLabel = (status) => {
+    switch (status) {
+      case 'active': return '● Active';
+      case 'completed': return '✓ Completed';
+      case 'disputed': return '⚠ Disputed';
+      case 'cancellation-requested': return '⏳ Cancel Requested';
+      case 'cancelled': return '✕ Cancelled';
+      default: return status || 'Unknown';
+    }
+  };
+
   const filtered = filter === 'all' ? contracts : contracts.filter(c => c.status === filter);
   const isClient = user?.role === 'client';
 
@@ -47,7 +58,7 @@ const MyContracts = () => {
             <p className="ws-subtitle">{contracts.length} total contracts</p>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {['all', 'active', 'completed'].map(f => (
+            {['all', 'active', 'disputed', 'cancellation-requested', 'completed', 'cancelled'].map(f => (
               <button
                 key={f}
                 className={`ws-action-btn ${filter === f ? 'ws-btn-blue' : 'ws-btn-gray'}`}
@@ -75,7 +86,7 @@ const MyContracts = () => {
                 <div className="contract-card-header">
                   <h3 className="contract-card-title">{c.project?.title || 'Untitled Project'}</h3>
                   <span className={`ws-status-badge ws-status-${c.status}`}>
-                    {c.status === 'active' ? '● Active' : '✓ Completed'}
+                    {getContractStatusLabel(c.status)}
                   </span>
                 </div>
                 <p className="contract-card-meta">

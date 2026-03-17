@@ -8,6 +8,8 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import ProjectDetails from './pages/ProjectDetails';
 import Messages from './pages/Messages';
+import Notifications from './pages/Notifications';
+import PendingReviews from './pages/PendingReviews';
 import Profile from './pages/Profile';
 import UserProfile from './pages/UserProfile';
 import Payments from './pages/Payments';
@@ -52,6 +54,22 @@ function App() {
                 <Messages />
               </PrivateRoute>
             } 
+          />
+          <Route
+            path="/notifications"
+            element={
+              <PrivateRoute>
+                <Notifications />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/reviews/pending"
+            element={
+              <PrivateRoute>
+                <PendingReviews />
+              </PrivateRoute>
+            }
           />
           <Route 
             path="/profile" 

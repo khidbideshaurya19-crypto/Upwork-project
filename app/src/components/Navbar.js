@@ -14,6 +14,7 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const userRole = user?.role;
@@ -25,6 +26,7 @@ const Navbar = () => {
     if (!user || isAdmin) return;
 
     fetchUnreadCount();
+    fetchNotificationUnreadCount();
 
     // Firestore real-time listener for new messages
     const userId = user.id || user._id;
@@ -37,7 +39,14 @@ const Navbar = () => {
       fetchUnreadCount();
     });
 
-    return () => unsubscribe();
+    const intervalId = setInterval(() => {
+      fetchNotificationUnreadCount();
+    }, 30000);
+
+    return () => {
+      unsubscribe();
+      clearInterval(intervalId);
+    };
   }, [user]);
 
   const fetchUnreadCount = async () => {
@@ -54,6 +63,18 @@ const Navbar = () => {
       setUnreadCount(total);
     } catch (error) {
       console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const fetchNotificationUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/notifications/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotificationUnreadCount(response.data.unreadCount || 0);
+    } catch (error) {
+      console.error('Error fetching notification count:', error);
     }
   };
 
@@ -154,6 +175,9 @@ const Navbar = () => {
                 <button className="upw-nav-link" onClick={() => navigate('/dashboard')}>
                   My Projects
                 </button>
+                <button className="upw-nav-link" onClick={() => navigate('/search-company')}>
+                  Find Companies
+                </button>
               </>
             )}
             {isCompany && (
@@ -171,6 +195,11 @@ const Navbar = () => {
                 My Contracts
               </button>
             )}
+            {(isClient || isCompany) && (
+              <button className="upw-nav-link" onClick={() => navigate('/reviews/pending')}>
+                Leave Review
+              </button>
+            )}
             <button className="upw-nav-link" onClick={() => navigate('/application-status')}>
               Application Status
             </button>
@@ -185,10 +214,11 @@ const Navbar = () => {
             )}
           </div>
 
-          <button className="upw-icon-btn" title="Notifications">
+          <button className="upw-icon-btn" title="Notifications" onClick={() => navigate('/notifications')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#62646a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
+            {notificationUnreadCount > 0 && <span className="upw-badge">{notificationUnreadCount}</span>}
           </button>
 
           <div className="upw-nav-user" onClick={() => setShowUserMenu(!showUserMenu)}>

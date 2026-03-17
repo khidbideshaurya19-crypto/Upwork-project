@@ -76,7 +76,17 @@ router.post('/', [auth, isClient, validateProject], async (req, res) => {
 // GET /api/projects  — Get all projects (with filters)
 router.get('/', async (req, res) => {
   try {
-    const { status, category, minBudget, maxBudget, search } = req.query;
+    const {
+      status,
+      category,
+      minBudget,
+      maxBudget,
+      search,
+      skills,
+      location,
+      duration,
+      minClientRating
+    } = req.query;
 
     // Firestore only supports equality filters natively;
     // apply budget/text filters in memory
@@ -94,8 +104,41 @@ router.get('/', async (req, res) => {
       const q = search.toLowerCase();
       allProjects = allProjects.filter(p =>
         (p.title && p.title.toLowerCase().includes(q)) ||
-        (p.description && p.description.toLowerCase().includes(q))
+        (p.description && p.description.toLowerCase().includes(q)) ||
+        (p.category && p.category.toLowerCase().includes(q)) ||
+        (p.location && p.location.toLowerCase().includes(q)) ||
+        (Array.isArray(p.skills) && p.skills.some(s => s && s.toLowerCase().includes(q)))
       );
+    }
+    if (location) {
+      const lq = String(location).toLowerCase();
+      allProjects = allProjects.filter(p => p.location && p.location.toLowerCase().includes(lq));
+    }
+    if (duration) {
+      const dq = String(duration).toLowerCase();
+      allProjects = allProjects.filter(p => p.duration && p.duration.toLowerCase().includes(dq));
+    }
+    if (skills) {
+      const wantedSkills = String(skills)
+        .split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+      if (wantedSkills.length > 0) {
+        allProjects = allProjects.filter((p) => {
+          const projectSkills = Array.isArray(p.skills) ? p.skills.map(s => String(s).toLowerCase()) : [];
+          return wantedSkills.every((wanted) => projectSkills.some((ps) => ps.includes(wanted)));
+        });
+      }
+    }
+
+    const minRatingN = Number(minClientRating || 0);
+    if (!Number.isNaN(minRatingN) && minRatingN > 0) {
+      const ratedProjects = [];
+      for (const p of allProjects) {
+        const client = p.client ? await User.findById(p.client) : null;
+        if ((client?.rating || 0) >= minRatingN) ratedProjects.push(p);
+      }
+      allProjects = ratedProjects;
     }
 
     // Sort by createdAt desc, limit 50

@@ -7,6 +7,7 @@ const Conversation = require('../models/Conversation');
 const User = require('../models/User');
 const Contract = require('../models/Contract');
 const ProjectUpdate = require('../models/ProjectUpdate');
+const { createNotification } = require('../utils/notifications');
 const { auth, isCompany, isClient } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
@@ -107,6 +108,17 @@ router.post('/:projectId', [auth, isCompany, upload.array('attachments', 5), val
     project.applicantsCount = (project.applicantsCount || 0) + 1;
     await project.save();
 
+    // Notify project owner about the new application
+    await createNotification({
+      userId: project.client,
+      type: 'application_submitted',
+      title: 'New application received',
+      message: `You received a new application for "${project.title}".`,
+      link: `/project/${project._id}`,
+      data: { projectId: project._id, applicationId: application._id },
+      createdBy: req.userId
+    });
+
     // Populate for response
     const populatedApp = await populateApp(application);
     const [clientUser, companyUser, projectDoc] = await Promise.all([
@@ -193,6 +205,16 @@ router.put('/:id/status', [auth, isClient], async (req, res) => {
     application.status = status;
     await application.save();
 
+    await createNotification({
+      userId: application.company,
+      type: 'application_status_update',
+      title: `Application ${status}`,
+      message: `Your application for "${project.title}" was ${status}.`,
+      link: '/application-status',
+      data: { projectId: project._id, applicationId: application._id, status },
+      createdBy: req.userId
+    });
+
     if (status === 'accepted') {
       project.status = 'in-progress';
       project.assignedTo = application.company;
@@ -204,6 +226,15 @@ router.put('/:id/status', [auth, isClient], async (req, res) => {
         if (oa._id.toString() !== application._id.toString()) {
           oa.status = 'rejected';
           await oa.save();
+          await createNotification({
+            userId: oa.company,
+            type: 'application_status_update',
+            title: 'Application rejected',
+            message: `Your application for "${project.title}" was rejected because another company was selected.`,
+            link: '/application-status',
+            data: { projectId: project._id, applicationId: oa._id, status: 'rejected' },
+            createdBy: req.userId
+          });
         }
       }
 

@@ -3,10 +3,13 @@ const router = express.Router();
 const { adminAuth, checkPermission } = require('../middleware/adminAuth');
 const User = require('../models/User');
 const Project = require('../models/Project');
+const Contract = require('../models/Contract');
 const Application = require('../models/Application');
 const Message = require('../models/Message');
 const ChatAlert = require('../models/ChatAlert');
 const Conversation = require('../models/Conversation');
+const ProjectUpdate = require('../models/ProjectUpdate');
+const { createNotificationsBulk } = require('../utils/notifications');
 const { sendApprovalEmail, sendRejectionEmail } = require('../utils/mailer');
 
 // ---- Utils ----
@@ -26,6 +29,21 @@ function safeProject(p) {
   if (!p) return null;
   const { _isNew, ...safe } = p;
   return safe;
+}
+
+async function populateContractAdmin(contract) {
+  const [client, company, project] = await Promise.all([
+    contract.clientId ? User.findById(contract.clientId) : null,
+    contract.companyId ? User.findById(contract.companyId) : null,
+    contract.projectId ? Project.findById(contract.projectId) : null
+  ]);
+
+  return {
+    ...contract.toJSON(),
+    client: client ? { _id: client._id, name: client.name, email: client.email } : null,
+    company: company ? { _id: company._id, name: company.name, companyName: company.companyName, email: company.email } : null,
+    project: project ? { _id: project._id, title: project.title, status: project.status } : null
+  };
 }
 
 // GET /api/admin/dashboard
@@ -221,6 +239,121 @@ router.delete('/projects/:projectId', adminAuth, checkPermission('manageProjects
   } catch (error) {
     console.error('Delete project error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/admin/contracts/cancellation-requests
+router.get('/contracts/cancellation-requests', adminAuth, checkPermission('manageProjects'), async (req, res) => {
+  try {
+    const { status = '' } = req.query;
+    let contracts = await Contract.find({ status: 'cancellation-requested' });
+    if (status) {
+      contracts = contracts.filter(c => c.cancelRequestStatus === status);
+    }
+
+    contracts.sort((a, b) => toDate(b.cancelRequestedAt || b.updatedAt) - toDate(a.cancelRequestedAt || a.updatedAt));
+    const populated = await Promise.all(contracts.map(populateContractAdmin));
+
+    res.json({
+      contracts: populated,
+      counts: {
+        total: populated.length,
+        pendingAdminReview: populated.filter(c => c.cancelRequestStatus === 'pending_admin_review').length,
+        awaitingAdminDecision: populated.filter(c => c.cancelRequestStatus === 'awaiting_admin_decision').length
+      }
+    });
+  } catch (error) {
+    console.error('Get cancellation requests error:', error);
+    res.status(500).json({ message: 'Server error fetching cancellation requests' });
+  }
+});
+
+// PUT /api/admin/contracts/:contractId/cancellation-decision
+router.put('/contracts/:contractId/cancellation-decision', adminAuth, checkPermission('manageProjects'), async (req, res) => {
+  try {
+    const { decision, reason } = req.body;
+    if (!['approve', 'reject'].includes(decision)) {
+      return res.status(400).json({ message: 'Decision must be approve or reject' });
+    }
+
+    const contract = await Contract.findById(req.params.contractId);
+    if (!contract) return res.status(404).json({ message: 'Contract not found' });
+    if (contract.status !== 'cancellation-requested') {
+      return res.status(400).json({ message: 'No pending cancellation request for this contract' });
+    }
+
+    const adminReason = (reason || '').trim();
+    contract.cancelDecisionByAdmin = req.adminId;
+    contract.cancelDecisionReason = adminReason;
+    contract.cancelDecisionAt = new Date();
+
+    const project = await Project.findById(contract.projectId);
+
+    if (decision === 'approve') {
+      contract.status = 'cancelled';
+      contract.cancelledBy = contract.cancelRequestBy || 'admin';
+      contract.cancelReason = contract.cancelRequestReason || adminReason;
+      contract.cancelledAt = new Date();
+      contract.cancelRequestStatus = 'approved_by_admin';
+
+      if (project) {
+        project.status = 'cancelled';
+        await project.save();
+      }
+    } else {
+      contract.status = contract.statusBeforeCancellationRequest || 'active';
+      contract.cancelRequestStatus = 'rejected_by_admin';
+
+      if (project && project.status === 'cancelled') {
+        project.status = contract.status === 'disputed' ? 'disputed' : 'in-progress';
+        await project.save();
+      }
+    }
+
+    await contract.save();
+
+    const sysUpdate = new ProjectUpdate({
+      contractId: contract._id,
+      projectId: contract.projectId,
+      authorId: req.adminId,
+      authorName: 'Admin',
+      authorRole: 'system',
+      message: decision === 'approve'
+        ? `Admin approved cancellation request. Contract is now cancelled.${adminReason ? ` Reason: ${adminReason}` : ''}`
+        : `Admin rejected cancellation request.${adminReason ? ` Reason: ${adminReason}` : ''}`,
+      type: 'system'
+    });
+    await sysUpdate.save();
+
+    await createNotificationsBulk([
+      {
+        userId: contract.clientId,
+        type: 'cancellation_decision',
+        title: decision === 'approve' ? 'Contract cancellation approved' : 'Contract cancellation rejected',
+        message: decision === 'approve'
+          ? 'Admin approved cancellation request for your contract.'
+          : 'Admin rejected cancellation request for your contract.',
+        link: `/workspace/${contract._id}`,
+        data: { contractId: contract._id, projectId: contract.projectId, decision },
+        createdBy: req.adminId
+      },
+      {
+        userId: contract.companyId,
+        type: 'cancellation_decision',
+        title: decision === 'approve' ? 'Contract cancellation approved' : 'Contract cancellation rejected',
+        message: decision === 'approve'
+          ? 'Admin approved cancellation request for your contract.'
+          : 'Admin rejected cancellation request for your contract.',
+        link: `/workspace/${contract._id}`,
+        data: { contractId: contract._id, projectId: contract.projectId, decision },
+        createdBy: req.adminId
+      }
+    ]);
+
+    res.json({ message: `Cancellation request ${decision}d`, contract: await populateContractAdmin(contract) });
+  } catch (error) {
+    console.error('Cancellation decision error:', error);
+    res.status(500).json({ message: 'Server error deciding cancellation request' });
   }
 });
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const Review = require('../models/Review');
 const Contract = require('../models/Contract');
 const User = require('../models/User');
+const Project = require('../models/Project');
 const { auth } = require('../middleware/auth');
 
 // Helper: recalculate aggregate rating for a user
@@ -21,6 +22,56 @@ async function recalcRating(userId) {
     $set: { rating: avg, reviewCount: reviews.length, topRated }
   });
 }
+
+// ═══════════════════════════════════════
+// GET /api/reviews/pending/me — Contracts awaiting current user's review
+// ═══════════════════════════════════════
+router.get('/pending/me', auth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const [asClient, asCompany] = await Promise.all([
+      Contract.find({ clientId: userId }),
+      Contract.find({ companyId: userId })
+    ]);
+
+    const seen = new Set();
+    const contracts = [...asClient, ...asCompany].filter((c) => {
+      if (seen.has(c._id)) return false;
+      seen.add(c._id);
+      return c.status === 'completed';
+    });
+
+    const pending = [];
+    for (const contract of contracts) {
+      const existing = await Review.findOne({ contractId: contract._id, reviewerId: userId });
+      if (existing) continue;
+
+      const revieweeId = contract.clientId === userId ? contract.companyId : contract.clientId;
+      const [reviewee, project] = await Promise.all([
+        revieweeId ? User.findById(revieweeId) : null,
+        contract.projectId ? Project.findById(contract.projectId) : null
+      ]);
+
+      pending.push({
+        contractId: contract._id,
+        projectId: contract.projectId,
+        projectTitle: project?.title || 'Untitled Project',
+        completedAt: contract.completedAt || contract.updatedAt,
+        reviewee: reviewee ? {
+          _id: reviewee._id,
+          name: reviewee.companyName || reviewee.name,
+          role: reviewee.role
+        } : null
+      });
+    }
+
+    pending.sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+    res.json({ pendingReviews: pending, count: pending.length });
+  } catch (err) {
+    console.error('Get pending reviews error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 // ═══════════════════════════════════════
 // POST /api/reviews — Submit a review after contract completion

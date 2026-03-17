@@ -31,6 +31,7 @@ const ProjectWorkspace = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [feedbackModal, setFeedbackModal] = useState(null);
   const [feedbackText, setFeedbackText] = useState('');
+  const [cancelResponseText, setCancelResponseText] = useState('');
 
   // Milestone deliverable uploads (keyed by milestoneId)
   const [milestoneFiles, setMilestoneFiles] = useState({});
@@ -64,6 +65,17 @@ const ProjectWorkspace = () => {
 
   const isClient = user?.role === 'client';
   const isCompany = user?.role === 'company';
+
+  const getContractStatusLabel = (status) => {
+    switch (status) {
+      case 'active': return '● Active';
+      case 'completed': return '✓ Completed';
+      case 'disputed': return '⚠ Disputed';
+      case 'cancellation-requested': return '⏳ Cancel Requested';
+      case 'cancelled': return '✕ Cancelled';
+      default: return status || 'Unknown';
+    }
+  };
 
   const parseDate = (d) => {
     if (!d) return 'N/A';
@@ -218,6 +230,48 @@ const ProjectWorkspace = () => {
     }
   };
 
+  const handleRaiseDispute = async () => {
+    const reason = window.prompt('Describe the dispute (required). Include details if the other party is unresponsive.');
+    if (!reason || !reason.trim()) return;
+
+    try {
+      const lowerReason = reason.toLowerCase();
+      const isUnresponsive = lowerReason.includes('silent') || lowerReason.includes('unresponsive') || lowerReason.includes('no response');
+      await api.put(`/contracts/${contractId}/dispute`, {
+        reason: reason.trim(),
+        category: isUnresponsive ? 'unresponsive' : 'general'
+      });
+      fetchContract();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to raise dispute');
+    }
+  };
+
+  const handleCancelContract = async () => {
+    if (!window.confirm('Submit cancellation request to admin? Admin will review and decide.')) return;
+
+    const reason = window.prompt('Provide a cancellation reason for admin review (required):');
+    if (!reason || !reason.trim()) return;
+
+    try {
+      await api.put(`/contracts/${contractId}/cancel`, { reason: reason.trim() });
+      fetchContract();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to cancel contract');
+    }
+  };
+
+  const handleSubmitCancelResponse = async () => {
+    if (!cancelResponseText.trim()) return;
+    try {
+      await api.put(`/contracts/${contractId}/cancel-response`, { response: cancelResponseText.trim() });
+      setCancelResponseText('');
+      fetchContract();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to submit response');
+    }
+  };
+
   const getMilestoneStatusColor = (status) => {
     switch (status) {
       case 'pending': return '#6b7280';
@@ -277,17 +331,52 @@ const ProjectWorkspace = () => {
                 {isClient ? `Company: ${contract.company?.companyName || contract.company?.name}` :
                             `Client: ${contract.client?.name}`}
                 <span className={`ws-status-badge ws-status-${contract.status}`}>
-                  {contract.status === 'active' ? '● Active' : '✓ Completed'}
+                  {getContractStatusLabel(contract.status)}
                 </span>
               </p>
             </div>
           </div>
-          {isClient && contract.status === 'active' && (
-            <button className="ws-complete-btn" onClick={handleCompleteProject}>
-              ✓ Mark Complete
-            </button>
-          )}
+          <div className="ws-header-actions">
+            {isClient && contract.status === 'active' && (
+              <button className="ws-complete-btn" onClick={handleCompleteProject}>
+                ✓ Mark Complete
+              </button>
+            )}
+            {contract.status === 'active' && (
+              <button className="ws-action-btn ws-btn-amber ws-header-action-btn" onClick={handleRaiseDispute}>
+                ⚠ Raise Dispute
+              </button>
+            )}
+            {(contract.status === 'active' || contract.status === 'disputed') && (
+              <button className="ws-action-btn ws-btn-red ws-header-action-btn" onClick={handleCancelContract}>
+                ✕ Request Cancellation
+              </button>
+            )}
+          </div>
         </div>
+
+        {contract.status === 'cancellation-requested' && (
+          <div className="ws-alert-banner ws-alert-pending-cancel">
+            <strong>Cancellation Under Admin Review:</strong> {contract.cancelRequestReason || 'No reason provided'}
+            {contract.cancelRequestedAt && ` · Requested on ${parseDate(contract.cancelRequestedAt)}`}
+            {contract.cancelResponse && ` · Counterparty response: ${contract.cancelResponse}`}
+            {contract.cancelDecisionReason && ` · Admin note: ${contract.cancelDecisionReason}`}
+          </div>
+        )}
+
+        {contract.status === 'disputed' && (
+          <div className="ws-alert-banner ws-alert-disputed">
+            <strong>Dispute Open:</strong> {contract.disputeReason || 'No reason provided'}
+            {contract.disputedAt && ` · Raised on ${parseDate(contract.disputedAt)}`}
+          </div>
+        )}
+
+        {contract.status === 'cancelled' && (
+          <div className="ws-alert-banner ws-alert-cancelled">
+            <strong>Contract Cancelled:</strong> {contract.cancelReason || 'No reason provided'}
+            {contract.cancelledAt && ` · Cancelled on ${parseDate(contract.cancelledAt)}`}
+          </div>
+        )}
 
         {/* Review prompt for completed contracts */}
         {contract.status === 'completed' && !hasReviewed && (
@@ -344,6 +433,30 @@ const ProjectWorkspace = () => {
         {/* ═══ Overview Tab ═══ */}
         {activeTab === 'overview' && (
           <div className="ws-content">
+            {contract.status === 'cancellation-requested' &&
+              contract.cancelRequestBy &&
+              contract.cancelRequestBy !== user?._id &&
+              !contract.cancelResponse && (
+                <div className="ws-cancel-response-card">
+                  <h3 className="ws-card-title">Respond To Cancellation Request</h3>
+                  <p className="ws-project-desc">
+                    Admin requested your response before making a final cancellation decision.
+                  </p>
+                  <textarea
+                    className="ws-textarea"
+                    rows={3}
+                    value={cancelResponseText}
+                    onChange={(e) => setCancelResponseText(e.target.value)}
+                    placeholder="Share your side so admin can decide fairly..."
+                  />
+                  <div style={{ marginTop: '10px' }}>
+                    <button className="ws-action-btn ws-btn-blue" onClick={handleSubmitCancelResponse} disabled={!cancelResponseText.trim()}>
+                      Submit Response To Admin
+                    </button>
+                  </div>
+                </div>
+              )}
+
             <div className="ws-overview-grid">
               {/* Contract details */}
               <div className="ws-card">
@@ -369,6 +482,18 @@ const ProjectWorkspace = () => {
                     <div className="ws-detail-row">
                       <span className="ws-detail-label">Completed</span>
                       <span className="ws-detail-value">{parseDate(contract.completedAt)}</span>
+                    </div>
+                  )}
+                  {contract.disputedAt && (
+                    <div className="ws-detail-row">
+                      <span className="ws-detail-label">Disputed</span>
+                      <span className="ws-detail-value">{parseDate(contract.disputedAt)}</span>
+                    </div>
+                  )}
+                  {contract.cancelledAt && (
+                    <div className="ws-detail-row">
+                      <span className="ws-detail-label">Cancelled</span>
+                      <span className="ws-detail-value">{parseDate(contract.cancelledAt)}</span>
                     </div>
                   )}
                 </div>
@@ -647,7 +772,7 @@ const ProjectWorkspace = () => {
         {/* ═══ Updates Tab ═══ */}
         {activeTab === 'updates' && (
           <div className="ws-content">
-            {contract.status === 'active' && (
+            {['active', 'disputed'].includes(contract.status) && (
               <form className="ws-update-form" onSubmit={handlePostUpdate}>
                 <textarea
                   placeholder="Post a progress update, share notes, or provide feedback..."

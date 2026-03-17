@@ -55,6 +55,42 @@
   letter-spacing: -0.3px;
 }
 
+.upw-advanced-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 14px;
+  border: 1px solid #d5dff5;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.upw-advanced-filters input,
+.upw-advanced-filters select {
+  height: 38px;
+  border: 1px solid #d5dff5;
+  border-radius: 6px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.upw-clear-filters-btn {
+  height: 38px;
+  border: 1px solid #d5dff5;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upw-clear-filters-btn:hover {
+  background: #f8fafc;
+}
+
 /* ── Sub-tabs row (Best Matches / Most Recent / Saved / Filters) ── */
 .upw-tabs-row {
   display: flex;

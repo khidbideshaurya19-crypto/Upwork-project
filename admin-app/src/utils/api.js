@@ -50,6 +50,13 @@ export const updateProjectStatus = (projectId, status, reason) =>
 export const deleteProject = (projectId) =>
   API.delete(`/admin/projects/${projectId}`);
 
+// Contract Cancellation Moderation APIs
+export const getCancellationRequests = (status = '') =>
+  API.get('/admin/contracts/cancellation-requests', { params: { status } });
+
+export const decideCancellationRequest = (contractId, decision, reason) =>
+  API.put(`/admin/contracts/${contractId}/cancellation-decision`, { decision, reason });
+
 // Reports APIs
 export const getReports = () =>
   API.get('/admin/reports');

@@ -1,0 +1,102 @@
+.notifications-container {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+.notifications-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.notifications-header h1 {
+  margin: 0;
+  font-size: 26px;
+  color: #111827;
+}
+
+.notifications-header p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.notifications-mark-all {
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.notifications-mark-all:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.notifications-empty {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px;
+  background: #ffffff;
+  color: #6b7280;
+}
+
+.notifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.notification-item.is-unread {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+
+.notification-main {
+  flex: 1;
+  cursor: pointer;
+}
+
+.notification-main h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: #111827;
+}
+
+.notification-main p {
+  margin: 0 0 6px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.notification-main span {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.notification-read-btn {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  border-radius: 7px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}

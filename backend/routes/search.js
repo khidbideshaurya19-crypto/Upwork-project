@@ -7,14 +7,23 @@ const { auth } = require('../middleware/auth');
 // Firestore doesn't support native regex, so we fetch by role and filter in memory.
 router.get('/', auth, async (req, res) => {
   try {
-    const { query } = req.query;
+    const {
+      query,
+      location,
+      industry,
+      skills,
+      minRating,
+      maxRating,
+      minJobsCompleted,
+      verified
+    } = req.query;
     const currentUser = req.user;
 
-    if (!query || query.trim() === '') {
-      return res.json({ users: [] });
-    }
+    const hasAnyFilter = [query, location, industry, skills, minRating, maxRating, minJobsCompleted, verified]
+      .some(v => v !== undefined && String(v).trim() !== '');
+    if (!hasAnyFilter) return res.json({ users: [] });
 
-    const q = query.toLowerCase();
+    const q = (query || '').toLowerCase();
 
     // Determine what role to search for
     let searchRole;
@@ -29,7 +38,16 @@ router.get('/', auth, async (req, res) => {
     // Fetch all users of the target role and filter in memory
     const allUsers = await User.find({ role: searchRole });
 
+    const minRatingN = Number(minRating || 0);
+    const maxRatingN = Number(maxRating || 0);
+    const minJobsN = Number(minJobsCompleted || 0);
+    const wantedSkills = String(skills || '')
+      .split(',')
+      .map(s => s.trim().toLowerCase())
+      .filter(Boolean);
+
     const matched = allUsers.filter(u => {
+      if (q) {
       const fields = [
         u.name,
         u.email,
@@ -38,7 +56,29 @@ router.get('/', auth, async (req, res) => {
         u.companyName,
         ...(u.skills || [])
       ];
-      return fields.some(f => f && f.toLowerCase().includes(q));
+      const textMatch = fields.some(f => f && f.toLowerCase().includes(q));
+      if (!textMatch) return false;
+      }
+
+      if (location && !(u.location || '').toLowerCase().includes(String(location).toLowerCase())) return false;
+      if (industry && !(u.industry || '').toLowerCase().includes(String(industry).toLowerCase())) return false;
+
+      if (wantedSkills.length > 0) {
+        const userSkills = Array.isArray(u.skills) ? u.skills.map(s => String(s).toLowerCase()) : [];
+        const hasSkills = wantedSkills.every(w => userSkills.some(us => us.includes(w)));
+        if (!hasSkills) return false;
+      }
+
+      if (!Number.isNaN(minRatingN) && minRatingN > 0 && (u.rating || 0) < minRatingN) return false;
+      if (!Number.isNaN(maxRatingN) && maxRatingN > 0 && (u.rating || 0) > maxRatingN) return false;
+      if (!Number.isNaN(minJobsN) && minJobsN > 0 && (u.jobsCompleted || 0) < minJobsN) return false;
+
+      if (verified !== undefined && verified !== '') {
+        const mustBeVerified = String(verified) === 'true';
+        if (!!u.verified !== mustBeVerified) return false;
+      }
+
+      return true;
     }).slice(0, 20);
 
     // Return without passwords

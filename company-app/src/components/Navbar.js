@@ -12,6 +12,7 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -22,10 +23,19 @@ const Navbar = () => {
   useEffect(() => {
     if (!user) return;
     fetchUnreadCount();
+    fetchNotificationUnreadCount();
     const userId = user.id || user._id;
     const q = query(collection(db, 'conversations'), where('company', '==', userId));
     const unsub = onSnapshot(q, () => { fetchUnreadCount(); });
-    return () => unsub();
+
+    const intervalId = setInterval(() => {
+      fetchNotificationUnreadCount();
+    }, 30000);
+
+    return () => {
+      unsub();
+      clearInterval(intervalId);
+    };
   }, [user]);
 
   const fetchUnreadCount = async () => {
@@ -41,6 +51,18 @@ const Navbar = () => {
       setUnreadCount(total);
     } catch (error) {
       console.error('Error fetching unread count:', error);
+    }
+  };
+
+  const fetchNotificationUnreadCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get(`${API_URL}/notifications/unread-count`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setNotificationUnreadCount(response.data.unreadCount || 0);
+    } catch (error) {
+      console.error('Error fetching notification count:', error);
     }
   };
 
@@ -117,6 +139,9 @@ const Navbar = () => {
             <button className="upw-nav-link" onClick={() => navigate('/payments')}>
               Payments <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg>
             </button>
+            <button className="upw-nav-link" onClick={() => navigate('/reviews/pending')}>
+              Leave Review
+            </button>
             <Link to="/messages" className="upw-nav-link upw-nav-link--a">
               Messages
               {unreadCount > 0 && <span className="upw-badge">{unreadCount}</span>}
@@ -169,10 +194,11 @@ const Navbar = () => {
               <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
           </button>
-          <button className="upw-icon-btn" title="Notifications">
+          <button className="upw-icon-btn" title="Notifications" onClick={() => navigate('/notifications')}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#62646a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
+            {notificationUnreadCount > 0 && <span className="upw-badge">{notificationUnreadCount}</span>}
           </button>
           <button className="upw-icon-btn" title="Settings">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#62646a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

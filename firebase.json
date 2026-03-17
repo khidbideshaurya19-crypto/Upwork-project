@@ -21,7 +21,7 @@
     },
     {
       "target": "company",
-      "public": "app/build",
+      "public": "company-app/build",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [
         {
@@ -36,7 +36,7 @@
     },
     {
       "target": "admin",
-      "public": "app/build",
+      "public": "admin-app/build",
       "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
       "rewrites": [
         {

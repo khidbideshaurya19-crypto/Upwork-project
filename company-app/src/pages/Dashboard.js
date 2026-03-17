@@ -19,6 +19,16 @@ const Dashboard = () => {
   const [browseTab, setBrowseTab] = useState('best');
   const [savedJobs, setSavedJobs] = useState([]);
   const [collapsedSections, setCollapsedSections] = useState({});
+  const [projectFilters, setProjectFilters] = useState({
+    search: '',
+    category: '',
+    skills: '',
+    location: '',
+    duration: '',
+    minBudget: '',
+    maxBudget: '',
+    minClientRating: ''
+  });
 
   useEffect(() => {
     fetchProjects();
@@ -37,10 +47,28 @@ const Dashboard = () => {
     return () => { unsubProjects(); unsubApps(); };
   }, [user]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchProjects();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [projectFilters]);
+
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const response = await api.get('/projects?status=open');
+      const params = {
+        status: 'open',
+        search: projectFilters.search || undefined,
+        category: projectFilters.category || undefined,
+        skills: projectFilters.skills || undefined,
+        location: projectFilters.location || undefined,
+        duration: projectFilters.duration || undefined,
+        minBudget: projectFilters.minBudget || undefined,
+        maxBudget: projectFilters.maxBudget || undefined,
+        minClientRating: projectFilters.minClientRating || undefined
+      };
+      const response = await api.get('/projects', { params });
       setProjects(response.data.projects);
     } catch (error) {
       console.error('Error fetching projects:', error);
@@ -156,6 +184,19 @@ const Dashboard = () => {
     }));
   };
 
+  const resetProjectFilters = () => {
+    setProjectFilters({
+      search: '',
+      category: '',
+      skills: '',
+      location: '',
+      duration: '',
+      minBudget: '',
+      maxBudget: '',
+      minClientRating: ''
+    });
+  };
+
   const displayProjects = [...projects].sort((a, b) => {
     if (browseTab === 'recent') {
       return new Date(b.createdAt) - new Date(a.createdAt);
@@ -255,6 +296,63 @@ const Dashboard = () => {
           <>
             <div className="upw-page-title">
               <h1>Jobs you might like</h1>
+            </div>
+
+            <div className="upw-advanced-filters">
+              <input
+                type="text"
+                placeholder="Search title, description, skills..."
+                value={projectFilters.search}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, search: e.target.value }))}
+              />
+              <input
+                type="text"
+                placeholder="Category"
+                value={projectFilters.category}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, category: e.target.value }))}
+              />
+              <input
+                type="text"
+                placeholder="Skills (comma-separated)"
+                value={projectFilters.skills}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, skills: e.target.value }))}
+              />
+              <input
+                type="text"
+                placeholder="Location"
+                value={projectFilters.location}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, location: e.target.value }))}
+              />
+              <input
+                type="text"
+                placeholder="Duration"
+                value={projectFilters.duration}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, duration: e.target.value }))}
+              />
+              <input
+                type="number"
+                min="0"
+                placeholder="Min Budget"
+                value={projectFilters.minBudget}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, minBudget: e.target.value }))}
+              />
+              <input
+                type="number"
+                min="0"
+                placeholder="Max Budget"
+                value={projectFilters.maxBudget}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, maxBudget: e.target.value }))}
+              />
+              <select
+                value={projectFilters.minClientRating}
+                onChange={(e) => setProjectFilters(prev => ({ ...prev, minClientRating: e.target.value }))}
+              >
+                <option value="">All Client Ratings</option>
+                <option value="3">3+ stars</option>
+                <option value="4">4+ stars</option>
+                <option value="4.5">4.5+ stars</option>
+              </select>
+              <button type="button" className="upw-clear-filters-btn" onClick={resetProjectFilters}>Clear Filters</button>
             </div>
 
             <div className="upw-tabs-row">

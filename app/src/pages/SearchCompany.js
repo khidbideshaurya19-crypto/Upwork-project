@@ -13,9 +13,26 @@ const SearchCompany = () => {
   const [filters, setFilters] = useState({
     location: '',
     industry: '',
-    minRating: 0
+    skills: '',
+    minRating: '',
+    maxRating: '',
+    minJobsCompleted: '',
+    verified: ''
   });
   const searchTimeoutRef = useRef(null);
+
+  const hasAnyFilter = () => {
+    return (
+      searchQuery.trim() ||
+      filters.location ||
+      filters.industry ||
+      filters.skills ||
+      filters.minRating ||
+      filters.maxRating ||
+      filters.minJobsCompleted ||
+      filters.verified
+    );
+  };
 
   // Debounced search
   useEffect(() => {
@@ -23,7 +40,7 @@ const SearchCompany = () => {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (!searchQuery.trim()) {
+    if (!hasAnyFilter()) {
       setCompanies([]);
       setError('');
       return;
@@ -46,25 +63,20 @@ const SearchCompany = () => {
   const handleSearch = async () => {
     try {
       setError('');
-      const response = await api.get(`/search?query=${encodeURIComponent(searchQuery)}`);
-      let results = response.data.users || [];
-      
-      // Apply client-side filters
-      if (filters.location) {
-        results = results.filter(c => 
-          c.location?.toLowerCase().includes(filters.location.toLowerCase())
-        );
-      }
-      if (filters.industry) {
-        results = results.filter(c => 
-          c.industry?.toLowerCase().includes(filters.industry.toLowerCase())
-        );
-      }
-      if (filters.minRating) {
-        results = results.filter(c => (c.rating || 0) >= filters.minRating);
-      }
-      
-      setCompanies(results);
+      const response = await api.get('/search', {
+        params: {
+          query: searchQuery || undefined,
+          location: filters.location || undefined,
+          industry: filters.industry || undefined,
+          skills: filters.skills || undefined,
+          minRating: filters.minRating || undefined,
+          maxRating: filters.maxRating || undefined,
+          minJobsCompleted: filters.minJobsCompleted || undefined,
+          verified: filters.verified || undefined
+        }
+      });
+
+      setCompanies(response.data.users || []);
     } catch (error) {
       console.error('Search error:', error);
       setError('Failed to search companies. Please try again.');
@@ -138,9 +150,23 @@ const SearchCompany = () => {
               }}
             />
 
+            <input
+              type="text"
+              placeholder="Skills (comma-separated)"
+              value={filters.skills}
+              onChange={(e) => setFilters({ ...filters, skills: e.target.value })}
+              style={{
+                padding: '12px 16px',
+                border: '1px solid #d5dff5',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit'
+              }}
+            />
+
             <select
               value={filters.minRating}
-              onChange={(e) => setFilters({ ...filters, minRating: parseFloat(e.target.value) })}
+              onChange={(e) => setFilters({ ...filters, minRating: e.target.value })}
               style={{
                 padding: '12px 16px',
                 border: '1px solid #d5dff5',
@@ -150,12 +176,86 @@ const SearchCompany = () => {
                 cursor: 'pointer'
               }}
             >
-              <option value={0}>All Ratings</option>
+              <option value="">Min Rating</option>
               <option value={3}>3+ Stars</option>
               <option value={4}>4+ Stars</option>
               <option value={4.5}>4.5+ Stars</option>
-              <option value={5}>5 Stars</option>
             </select>
+
+            <select
+              value={filters.maxRating}
+              onChange={(e) => setFilters({ ...filters, maxRating: e.target.value })}
+              style={{
+                padding: '12px 16px',
+                border: '1px solid #d5dff5',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">Max Rating</option>
+              <option value={5}>5 Stars</option>
+              <option value={4.5}>Up to 4.5</option>
+              <option value={4}>Up to 4</option>
+            </select>
+
+            <input
+              type="number"
+              min="0"
+              placeholder="Min Jobs Completed"
+              value={filters.minJobsCompleted}
+              onChange={(e) => setFilters({ ...filters, minJobsCompleted: e.target.value })}
+              style={{
+                padding: '12px 16px',
+                border: '1px solid #d5dff5',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit'
+              }}
+            />
+
+            <select
+              value={filters.verified}
+              onChange={(e) => setFilters({ ...filters, verified: e.target.value })}
+              style={{
+                padding: '12px 16px',
+                border: '1px solid #d5dff5',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">Verification</option>
+              <option value="true">Verified only</option>
+              <option value="false">Unverified only</option>
+            </select>
+
+            <button
+              type="button"
+              onClick={() => setFilters({
+                location: '',
+                industry: '',
+                skills: '',
+                minRating: '',
+                maxRating: '',
+                minJobsCompleted: '',
+                verified: ''
+              })}
+              style={{
+                padding: '12px 16px',
+                border: '1px solid #d5dff5',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                background: '#fff',
+                cursor: 'pointer',
+                fontWeight: '600'
+              }}
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
 
@@ -175,13 +275,13 @@ const SearchCompany = () => {
 
         {loading ? (
           <div className="loading">Searching companies...</div>
-        ) : companies.length === 0 && searchQuery.trim() ? (
+        ) : companies.length === 0 && hasAnyFilter() ? (
           <div className="empty-state">
             <p>No companies found. Try a different search.</p>
           </div>
         ) : companies.length === 0 ? (
           <div className="empty-state">
-            <p>Enter a search query to find companies.</p>
+            <p>Search by text or use filters to find companies.</p>
           </div>
         ) : (
           <div style={{
