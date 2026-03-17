@@ -18,76 +18,72 @@ import SearchCompany from './pages/SearchCompany';
 import Payments from './pages/Payments';
 import ApplicationStatus from './pages/ApplicationStatus';
 import Notifications from './pages/Notifications';
-
 import PendingApproval from './pages/PendingApproval';
 import ProjectWorkspace from './pages/ProjectWorkspace';
 import MyContracts from './pages/MyContracts';
 import PendingReviews from './pages/PendingReviews';
-import Navbar from './components/Navbar';
 import './App.css';
 
-// Smart Dashboard that renders based on role
 const SmartDashboard = () => {
   const { user } = useAuth();
-  // Redirect unapproved companies to pending page
+
   if (user?.role === 'company' && user?.verificationStatus && user.verificationStatus !== 'approved') {
     return <Navigate to="/pending-approval" />;
   }
+
   if (user?.role === 'company') return <CompanyDashboard />;
   return <Dashboard />;
 };
 
-
-
 function App() {
   return (
     <AuthProvider>
-        <Router>
+      <Router>
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/get-started" element={<RoleSelection />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/pending-approval" element={<PendingApproval />} />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <PrivateRoute>
                 <SmartDashboard />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/post-project" 
+          <Route
+            path="/post-project"
             element={
               <PrivateRoute>
                 <PostProject />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/project/:id" 
+          <Route
+            path="/project/:id"
             element={
               <PrivateRoute>
                 <ProjectDetails />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/workspace/:contractId" 
+          <Route
+            path="/workspace/:contractId"
             element={
               <PrivateRoute>
                 <ProjectWorkspace />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/contracts" 
+          <Route
+            path="/contracts"
             element={
               <PrivateRoute>
                 <MyContracts />
               </PrivateRoute>
-            } 
+            }
           />
           <Route
             path="/reviews/pending"
@@ -97,61 +93,61 @@ function App() {
               </PrivateRoute>
             }
           />
-          <Route 
-            path="/messages" 
+          <Route
+            path="/messages"
             element={
               <PrivateRoute>
                 <Messages />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/messages/:conversationId" 
+          <Route
+            path="/messages/:conversationId"
             element={
               <PrivateRoute>
                 <Messages />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/profile" 
+          <Route
+            path="/profile"
             element={
               <PrivateRoute>
                 <Profile />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/user/:userId" 
+          <Route
+            path="/user/:userId"
             element={
               <PrivateRoute>
                 <UserProfile />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/search-company" 
+          <Route
+            path="/search-company"
             element={
               <PrivateRoute>
                 <SearchCompany />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/payments" 
+          <Route
+            path="/payments"
             element={
               <PrivateRoute>
                 <Payments />
               </PrivateRoute>
-            } 
+            }
           />
-          <Route 
-            path="/application-status" 
+          <Route
+            path="/application-status"
             element={
               <PrivateRoute>
                 <ApplicationStatus />
               </PrivateRoute>
-            } 
+            }
           />
           <Route
             path="/notifications"
@@ -161,19 +157,11 @@ function App() {
               </PrivateRoute>
             }
           />
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
 
-          {/* Admin Routes */}
-          <Route 
-            path="/admin/dashboard" 
-            element={
-              <AdminRoute>
-                <Navbar />
-                <AdminDashboard />
-              </AdminRoute>
-            } 
-          />
-          <Route 
-            path="/admin/users" 
-            element={
-              <AdminRoute>
-                <Navbar />
+export default App;
