@@ -18,7 +18,12 @@ import SearchCompany from './pages/SearchCompany';
 import Payments from './pages/Payments';
 import ApplicationStatus from './pages/ApplicationStatus';
 import Notifications from './pages/Notifications';
-
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminProjects from './pages/AdminProjects';
+import AdminReports from './pages/AdminReports';
+import AdminCompanyVerification from './pages/AdminCompanyVerification';
+import AdminChatAlerts from './pages/AdminChatAlerts';
 import PendingApproval from './pages/PendingApproval';
 import ProjectWorkspace from './pages/ProjectWorkspace';
 import MyContracts from './pages/MyContracts';
@@ -37,7 +42,22 @@ const SmartDashboard = () => {
   return <Dashboard />;
 };
 
+// Admin route wrapper - only allows admin users
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/login" />;
+  if (user.role !== 'admin') return <Navigate to="/dashboard" />;
+  return children;
+};
 
 function App() {
   return (
@@ -177,3 +197,52 @@ function App() {
             element={
               <AdminRoute>
                 <Navbar />
+                <AdminUsers />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/projects" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminProjects />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/reports" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminReports />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/company-verification" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminCompanyVerification />
+              </AdminRoute>
+            } 
+          />
+          <Route 
+            path="/admin/chat-alerts" 
+            element={
+              <AdminRoute>
+                <Navbar />
+                <AdminChatAlerts />
+              </AdminRoute>
+            } 
+          />
+
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
